@@ -49,6 +49,7 @@ class ClipboardPluginTest {
 
         device = mockk {
             every { deviceId } returns "testDevice"
+            every { name } returns "Test device"
             every { sendPacket(any()) } answers {
                 packet = arg<NetworkPacket>(0)
             }
@@ -77,7 +78,7 @@ class ClipboardPluginTest {
         Assert.assertTrue(clipboardPlugin.onPacketReceived(packet))
 
         // Verify that the clipboard content has been set
-        verify(exactly = 1) { clipboardListener.setText(content) }
+        verify(exactly = 1) { clipboardListener.setText(content, true) }
     }
 
     @Test
@@ -94,7 +95,7 @@ class ClipboardPluginTest {
         Assert.assertTrue(clipboardPlugin.onPacketReceived(packet))
 
         // Verify that the clipboard content is updated
-        verify(exactly = 1) { clipboardListener.setText(content) }
+        verify(exactly = 1) { clipboardListener.setText(content, true) }
     }
 
     @Test
@@ -151,19 +152,17 @@ class ClipboardPluginTest {
     }
 
     @Test
-    fun testSendConnectPacketSentWhenClipSensitiveButPreferenceOff() {
+    fun testSendConnectPacketSkippedWhenClipSensitiveEvenWithPreferenceOff() {
         preferences.edit().putBoolean(SKIP_SENSITIVE_PREF_KEY, false).apply()
 
-        val content = "still-sent"
-        every { clipboardListener.currentContent } returns content
+        every { clipboardListener.currentContent } returns "password-manager copy"
         every { clipboardListener.currentContentType } returns ClipboardListener.ClipboardContentType.Password
         every { clipboardListener.updateTimestamp } returns 999L
 
         clipboardPlugin.onCreate()
 
-        val sentPacket = checkNotNull(packet)
-        Assert.assertEquals("kdeconnect.clipboard.connect", sentPacket.type)
-        Assert.assertEquals(content, sentPacket.getString("content"))
+        Assert.assertNull(packet)
+        verify(exactly = 0) { device.sendPacket(any()) }
     }
 
     @Test
