@@ -38,6 +38,12 @@ import org.kde.kdeconnect.helpers.DeviceHelper
 import org.kde.kdeconnect.helpers.security.SslHelper
 import org.kde.kdeconnect.plugins.Plugin
 import org.kde.kdeconnect.plugins.PluginFactory
+import org.kde.kdeconnect.plugins.clipboard.ClipboardPlugin
+import org.kde.kdeconnect.plugins.mpris.MprisPlugin
+import org.kde.kdeconnect.plugins.mousepad.MousePadPlugin
+import org.kde.kdeconnect.plugins.notifications.NotificationsPlugin
+import org.kde.kdeconnect.plugins.runcommand.RunCommandPlugin
+import org.kde.kdeconnect.plugins.share.SharePlugin
 import org.kde.kdeconnect.plugins.battery.BatteryPlugin
 import org.kde.kdeconnect.ui.compose.KdeTheme
 import org.kde.kdeconnect.ui.compose.screen.device.DeviceErrorScreen
@@ -115,6 +121,28 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         for (entry in menuEntries) {
             menu.add(entry.name).setOnMenuItemClickListener {
                 entry.onClick(mActivity!!)
+                true
+            }
+        }
+        listOf(
+            R.string.feature_connection to org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION,
+            R.string.feature_clipboard to org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD,
+            R.string.feature_notifications to org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS,
+            R.string.feature_controls to org.kde.kdeconnect.ui.features.FeatureDestination.CONTROL,
+            R.string.feature_scenes to org.kde.kdeconnect.ui.features.FeatureDestination.SCENES,
+            R.string.feature_mirror to org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR,
+            R.string.feature_desk_mode to org.kde.kdeconnect.ui.features.FeatureDestination.DESK,
+        ).forEach { (label, destination) ->
+            menu.add(label).setOnMenuItemClickListener {
+                (mActivity as? MainActivity)?.openFeatureScreen(deviceId, destination)
+                true
+            }
+        }
+        if (device.isReachable) {
+            menu.add(R.string.feature_touchpad_title).setOnMenuItemClickListener {
+                val plugin = KdeConnect.getInstance().getDevicePlugin<MousePadPlugin>(deviceId)
+                if (plugin != null) plugin.getUiButtons().firstOrNull()?.onClick?.invoke(mActivity!!)
+                else startActivity(PluginSettingsActivity.createIntent(requireContext(), deviceId, Plugin.getPluginKey(MousePadPlugin::class.java)))
                 true
             }
         }
@@ -233,8 +261,16 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                     when (device.pairStatus) {
                         PairingHandler.PairState.Paired -> {
                             if (device.isReachable) {
-                                val pluginsWithButtons =
-                                    device.loadedPlugins.values.flatMap { plugin -> plugin.getUiButtons() }
+                                val pluginsWithButtons = device.loadedPlugins.values
+                                    .flatMap { plugin -> plugin.getUiButtons() }.toMutableList()
+                                val clipboardPlugin = device.loadedPlugins[Plugin.getPluginKey(ClipboardPlugin::class.java)]
+                                    as? ClipboardPlugin
+                                if (pluginsWithButtons.none { it.iconRes == R.drawable.ic_baseline_content_paste_24 }) {
+                                    clipboardPlugin?.getUiMenuEntries()?.firstOrNull()?.let { entry ->
+                                        pluginsWithButtons.add(Plugin.PluginUiButton(entry.name,
+                                            R.drawable.ic_baseline_content_paste_24, entry.onClick))
+                                    }
+                                }
                                 val pluginsNeedPermissions =
                                     device.pluginsWithoutPermissions.values.filter { plugin ->
                                         device.isPluginEnabled(plugin.pluginKey)
@@ -243,28 +279,46 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                                     device.pluginsWithoutOptionalPermissions.values.filter { plugin ->
                                         device.isPluginEnabled(plugin.pluginKey)
                                     }
-                                val pluginCards = PluginFactory.sortPluginList(device.supportedPlugins)
-                                    .mapNotNull { pluginKey ->
-                                        val plugin = device.getPluginIncludingWithoutPermissions(pluginKey)
-                                            ?: PluginFactory.instantiatePluginForDevice(
-                                                requireContext(),
-                                                pluginKey,
-                                                device,
-                                            )
-                                        if (plugin == null || !plugin.isCompatible) {
-                                            null
-                                        } else {
-                                            val action = plugin.getUiButtons().firstOrNull() ?: return@mapNotNull null
-                                            PluginDashboardItem(
-                                                pluginKey = pluginKey,
-                                                name = plugin.displayName,
-                                                description = plugin.description,
-                                                iconRes = action.iconRes,
-                                                enabled = device.isPluginEnabled(pluginKey),
-                                                action = action,
-                                            )
-                                        }
+                                val featurePlugins = buildList {
+                                    add(Triple(Plugin.getPluginKey(ClipboardPlugin::class.java),
+                                        R.string.dashboard_clipboard, R.string.dashboard_clipboard_summary))
+                                    add(Triple(Plugin.getPluginKey(NotificationsPlugin::class.java),
+                                        R.string.dashboard_notifications, R.string.dashboard_notifications_summary))
+                                    add(Triple(Plugin.getPluginKey(SharePlugin::class.java),
+                                        R.string.dashboard_share, R.string.dashboard_share_summary))
+                                    add(Triple(Plugin.getPluginKey(MprisPlugin::class.java),
+                                        R.string.dashboard_media, R.string.dashboard_media_summary))
+                                    if (DeviceHelper.isTablet) {
+                                        add(Triple(Plugin.getPluginKey(MousePadPlugin::class.java),
+                                            R.string.dashboard_remote_input, R.string.dashboard_remote_input_summary))
+                                        add(Triple(Plugin.getPluginKey(RunCommandPlugin::class.java),
+                                            R.string.dashboard_commands, R.string.dashboard_commands_summary))
                                     }
+                                }
+                                val pluginCards = featurePlugins.map { (pluginKey, name, description) ->
+                                    val supported = pluginKey in device.supportedPlugins
+                                    val plugin = device.getPluginIncludingWithoutPermissions(pluginKey)
+                                        ?: if (supported) PluginFactory.instantiatePluginForDevice(
+                                            requireContext(), pluginKey, device,
+                                        ) else null
+                                    val icon = when (pluginKey) {
+                                        Plugin.getPluginKey(ClipboardPlugin::class.java) -> R.drawable.ic_baseline_content_paste_24
+                                        Plugin.getPluginKey(NotificationsPlugin::class.java) -> R.drawable.ic_notifications_24
+                                        Plugin.getPluginKey(SharePlugin::class.java) -> R.drawable.share_plugin_action_24dp
+                                        Plugin.getPluginKey(MprisPlugin::class.java) -> R.drawable.mpris_plugin_action_24dp
+                                        Plugin.getPluginKey(MousePadPlugin::class.java) -> R.drawable.touchpad_plugin_action_24dp
+                                        else -> R.drawable.run_command_plugin_icon_24dp
+                                    }
+                                    PluginDashboardItem(
+                                        pluginKey = pluginKey,
+                                        name = getString(name),
+                                        description = getString(description),
+                                        iconRes = icon,
+                                        enabled = supported && device.isPluginEnabled(pluginKey),
+                                        action = plugin?.getUiButtons()?.firstOrNull(),
+                                        available = supported && plugin?.isCompatible == true,
+                                    )
+                                }
                                 PluginsScreen(
                                     pluginsWithButtons = pluginsWithButtons,
                                     pluginCards = pluginCards,
@@ -274,6 +328,10 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                                     onPluginClick = { pluginCard ->
                                         val plugin = device.getPluginIncludingWithoutPermissions(pluginCard.pluginKey)
                                         when {
+                                            pluginCard.pluginKey == Plugin.getPluginKey(ClipboardPlugin::class.java) ->
+                                                (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD)
+                                            pluginCard.pluginKey == Plugin.getPluginKey(NotificationsPlugin::class.java) ->
+                                                (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS)
                                             plugin != null && plugin.pluginKey in device.pluginsWithoutPermissions ->
                                                 plugin.permissionExplanationDialog.show(childFragmentManager, null)
                                             pluginCard.action != null -> pluginCard.action.onClick(mActivity!!)
@@ -287,7 +345,7 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                                         }
                                     },
                                     onPluginEnabledChange = { pluginCard, enabled ->
-                                        device.setPluginEnabled(pluginCard.pluginKey, enabled)
+                                        if (pluginCard.available) device.setPluginEnabled(pluginCard.pluginKey, enabled)
                                     },
                                     onDeviceMenuClick = { showDeviceOptions(binding.deviceView) },
                                     actionNeedPermissions = { plugin ->
@@ -307,6 +365,7 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                                     remoteDeviceName = device.name,
                                     remoteDeviceIcon = device.deviceType.toDrawableId(),
                                     connectivityType = device.connectivityType,
+                                    onConnectionClick = { (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION) },
                                 )
                                 displayBatteryInfoIfPossible()
                             } else {

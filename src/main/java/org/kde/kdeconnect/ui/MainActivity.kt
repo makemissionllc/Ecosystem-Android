@@ -115,7 +115,7 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
 
         val root = binding.root
         setContentView(root)
-        if (isTwoPaneLayout) binding.toolbarLayout.root.visibility = View.GONE
+        if (isTwoPaneLayout || binding.bottomNavigation != null) binding.toolbarLayout.root.visibility = View.GONE
 
         // Pad the drawer header directly: DrawerLayout's default child dispatch stops at
         // AppBarLayout (which consumes the insets via its own fitsSystemWindows), so neither
@@ -144,7 +144,7 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
                             MENU_ENTRY_SHARE -> openShareScreen(mCurrentDevice)
                             MENU_ENTRY_SETTINGS -> {
                                 mCurrentMenuEntry = MENU_ENTRY_SETTINGS
-                                setContentFragment(SettingsFragment())
+                                setContentFragment(EcosystemSettingsFragment())
                             }
                             else -> onDeviceSelected(mCurrentDevice)
                         }
@@ -168,7 +168,7 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
                 }
 
                 MENU_ENTRY_SETTINGS -> {
-                    setContentFragment(SettingsFragment())
+                    setContentFragment(EcosystemSettingsFragment())
                 }
 
                 MENU_ENTRY_ABOUT -> {
@@ -238,11 +238,12 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
         if (savedInstanceState != null) {
             val frag = supportFragmentManager.findFragmentById(R.id.container)
             val fragmentMatchesSelection = when {
-                savedMenuEntry == MENU_ENTRY_SETTINGS -> frag is SettingsFragment
+                savedMenuEntry == MENU_ENTRY_SETTINGS -> frag is EcosystemSettingsFragment || frag is SettingsFragment
                 savedMenuEntry == MENU_ENTRY_ABOUT -> frag is AboutFragment
                 savedMenuEntry == MENU_ENTRY_SHARE -> frag is ShareFragment
                 savedMenuEntry >= MENU_ENTRY_DEVICE_FIRST_ID && savedDevice != null ->
-                    frag is DeviceFragment && frag.deviceId == savedDevice
+                    (frag is DeviceFragment && frag.deviceId == savedDevice) ||
+                    (frag is org.kde.kdeconnect.ui.features.FeatureFragment && frag.arguments?.getString("deviceId") == savedDevice)
                 else -> frag is PairingFragment
             }
             if (fragmentMatchesSelection) return
@@ -253,7 +254,7 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
             onDeviceSelected(savedDevice)
         } else {
             when (mCurrentMenuEntry) {
-                MENU_ENTRY_SETTINGS -> setContentFragment(SettingsFragment())
+                MENU_ENTRY_SETTINGS -> setContentFragment(EcosystemSettingsFragment())
                 MENU_ENTRY_ABOUT -> setContentFragment(AboutFragment.newInstance())
                 MENU_ENTRY_SHARE -> setContentFragment(ShareFragment.newInstance(savedDevice, shareIntentOrNull(intent)))
                 else -> setContentFragment(PairingFragment())
@@ -300,6 +301,12 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
             }
         }
         return if (pairStatus == PAIRING_ACCEPTED || pairStatus == PAIRING_PENDING) deviceId else null
+    }
+
+    internal fun openFeatureScreen(deviceId: String, screen: org.kde.kdeconnect.ui.features.FeatureDestination) {
+        mCurrentDevice = deviceId
+        mCurrentMenuEntry = deviceIdToMenuEntryId(deviceId)
+        setContentFragment(org.kde.kdeconnect.ui.features.FeatureFragment.newInstance(deviceId, screen))
     }
 
     fun openShareScreen(deviceId: String?) {
@@ -422,23 +429,31 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
     private fun updatePhoneToolbar() {
         if (binding.bottomNavigation == null) return
         supportActionBar?.apply {
-            setDisplayHomeAsUpEnabled(mCurrentMenuEntry != MENU_ENTRY_ADD_DEVICE)
-            subtitle = null
-            title = when (mCurrentMenuEntry) {
-                MENU_ENTRY_SETTINGS -> getString(R.string.settings)
-                MENU_ENTRY_ABOUT -> getString(R.string.about)
-                else -> mCurrentDevice?.let { KdeConnect.getInstance().getDevice(it)?.name }
-                    ?: getString(R.string.devices)
-            }
+            hide()
         }
+    }
+
+    internal fun configureFeatureChrome(screen: org.kde.kdeconnect.ui.features.FeatureDestination?) {
+        if (isTwoPaneLayout) binding.navigationDrawer.visibility = if (screen == org.kde.kdeconnect.ui.features.FeatureDestination.DESK) View.GONE else View.VISIBLE
+        binding.bottomNavigation?.visibility = if (screen == null || screen == org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS ||
+            screen == org.kde.kdeconnect.ui.features.FeatureDestination.SCENES) View.VISIBLE else View.GONE
     }
 
     private fun setContentFragment(fragment: Fragment) {
         updatePhoneToolbar()
-        supportFragmentManager
-            .beginTransaction()
-            .replace(R.id.container, fragment)
-            .commit()
+        configureFeatureChrome((fragment as? org.kde.kdeconnect.ui.features.FeatureFragment)?.arguments?.getString("screen")
+            ?.let { org.kde.kdeconnect.ui.features.FeatureDestination.valueOf(it) })
+        val manager = supportFragmentManager
+        val previous = manager.findFragmentById(R.id.container)
+        val returningToDevice = previous != null && previous !is DeviceFragment && fragment is DeviceFragment
+        val transaction = manager.beginTransaction()
+        if (previous != null) {
+            transaction.setCustomAnimations(
+                if (returningToDevice) R.anim.screen_enter_back else R.anim.screen_enter,
+                if (returningToDevice) R.anim.screen_exit_back else R.anim.screen_exit
+            )
+        }
+        transaction.replace(R.id.container, fragment).commit()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

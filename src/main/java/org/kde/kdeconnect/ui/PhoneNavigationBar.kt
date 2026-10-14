@@ -26,7 +26,14 @@ import org.kde.kdeconnect_tp.R
 
 @Composable
 internal fun PhoneNavigationBar(selectedEntry: Int, onSelect: (Int) -> Unit) {
-    val selectedTab = if (selectedEntry == 2 || selectedEntry == 4) selectedEntry else 1
+    val selectedTab = if (selectedEntry == 2) 2 else if (selectedEntry == 4) 4 else 1
+    val destinations = if (selectedEntry == 4) {
+        listOf(4 to R.string.share, 2 to R.string.settings)
+    } else if (selectedEntry == 2) {
+        listOf(1 to R.string.devices, 2 to R.string.settings)
+    } else {
+        listOf(1 to R.string.devices, 4 to R.string.share, 2 to R.string.settings)
+    }
     Surface(color = MaterialTheme.colorScheme.background) {
         Surface(
             modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -34,7 +41,7 @@ internal fun PhoneNavigationBar(selectedEntry: Int, onSelect: (Int) -> Unit) {
         ) {
             Row(modifier = Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(1 to R.string.devices, 4 to R.string.share, 2 to R.string.settings).forEach { (entry, title) ->
+                destinations.forEach { (entry, title) ->
                     val selected = selectedTab == entry
                     Surface(
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,6 +40,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -57,6 +61,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -74,10 +79,14 @@ internal fun ShareScreen(
     targetDeviceConnected: Boolean,
     transfers: List<ShareTransferRecord>,
     isDropActive: Boolean,
+    onBack: () -> Unit,
     onChooseFiles: () -> Unit,
     onFilesDropped: (List<Uri>, DragAndDropPermissions?) -> Unit,
     onDropActiveChanged: (Boolean) -> Unit,
 ) {
+    val topInset = if (LocalContext.current.resources.configuration.screenWidthDp < 600) {
+        with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
+    } else 0.dp
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val wideLayout = maxWidth >= 700.dp
@@ -86,25 +95,38 @@ internal fun ShareScreen(
                     .fillMaxSize()
                     .widthIn(max = 1440.dp)
                     .align(Alignment.TopCenter)
-                    .padding(horizontal = if (wideLayout) 28.dp else 20.dp, vertical = 20.dp),
+                    .padding(
+                        start = if (wideLayout) 28.dp else 20.dp,
+                        top = topInset + 20.dp,
+                        end = if (wideLayout) 28.dp else 20.dp,
+                        bottom = 20.dp,
+                    ),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = stringResource(R.string.share_files_title),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = targetDeviceName?.let { name ->
-                                if (targetDeviceConnected) stringResource(R.string.share_sent_to, name)
-                                else stringResource(R.string.share_device_offline, name)
-                            } ?: stringResource(R.string.share_device_not_selected),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
+                        Icon(
+                            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_arrow_back_black_24dp),
+                            contentDescription = stringResource(R.string.background_back),
+                            tint = MaterialTheme.colorScheme.onBackground,
                         )
                     }
+                    Text(
+                        text = targetDeviceName ?: stringResource(R.string.pairing_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.share_files_title),
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f),
+                    )
                     if (wideLayout) {
                         ChooseFilesButton(
                             enabled = targetDeviceConnected,
@@ -137,9 +159,10 @@ internal fun ShareScreen(
                     }
                 } else {
                     LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
-                    ) {
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(20.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 8.dp),
+                        ) {
                         item {
                             DropArea(
                                 targetDeviceName = targetDeviceName,
@@ -149,16 +172,15 @@ internal fun ShareScreen(
                                 onChooseFiles = onChooseFiles,
                                 onFilesDropped = onFilesDropped,
                                 onDropActiveChanged = onDropActiveChanged,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 205.dp),
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 144.dp),
                             )
                         }
-                        item { RecentHeader() }
-                        if (transfers.isEmpty()) {
-                            item { EmptyRecentCard() }
-                        } else {
-                            items(transfers, key = ShareTransferRecord::id) { transfer ->
-                                TransferCard(transfer = transfer)
-                            }
+                        item {
+                            RecentTransfers(
+                                transfers = transfers,
+                                modifier = Modifier.fillMaxWidth(),
+                                scrollable = false,
+                            )
                         }
                     }
                 }
@@ -250,25 +272,25 @@ private fun DropArea(
         color = MaterialTheme.colorScheme.surface,
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(28.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Surface(
-                modifier = Modifier.size(64.dp),
+                modifier = Modifier.size(40.dp),
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.onBackground,
                 contentColor = MaterialTheme.colorScheme.background,
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    FileGlyph(modifier = Modifier.size(28.dp), color = MaterialTheme.colorScheme.background, upload = true)
+                    FileGlyph(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.background, upload = true)
                 }
             }
             Text(
                 text = if (targetDeviceConnected && !showChooseFilesPrompt) stringResource(R.string.share_drop_files_here)
                 else if (targetDeviceConnected) stringResource(R.string.share_choose_files)
                 else stringResource(R.string.share_choose_device_first),
-                modifier = Modifier.padding(top = 16.dp),
+                modifier = Modifier.padding(top = 12.dp),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Medium,
             )
@@ -278,7 +300,7 @@ private fun DropArea(
                     !targetDeviceConnected -> stringResource(R.string.share_device_offline_short)
                     else -> stringResource(R.string.share_sent_to, targetDeviceName)
                 },
-                modifier = Modifier.padding(top = 6.dp),
+                modifier = Modifier.padding(top = 4.dp),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -298,7 +320,10 @@ private fun RecentHeader() {
 
 @Composable
 private fun RecentTransfers(transfers: List<ShareTransferRecord>, modifier: Modifier = Modifier, scrollable: Boolean) {
-    Column(modifier = modifier.fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        modifier = modifier.then(if (scrollable) Modifier.fillMaxHeight() else Modifier),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         RecentHeader()
         if (transfers.isEmpty()) {
             EmptyRecentCard()
@@ -366,17 +391,17 @@ private fun TransferRow(transfer: ShareTransferRecord, modifier: Modifier = Modi
     }
     val showProgress = transfer.status == TransferStatus.SENDING || transfer.status == TransferStatus.RECEIVING
     Column(
-        modifier = modifier.fillMaxWidth().padding(vertical = 15.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier.fillMaxWidth().padding(vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Surface(
-                modifier = Modifier.size(46.dp),
+                modifier = Modifier.size(40.dp),
                 shape = RoundedCornerShape(50),
                 color = MaterialTheme.colorScheme.surfaceVariant,
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    FileGlyph(modifier = Modifier.size(21.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FileGlyph(modifier = Modifier.size(19.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -461,6 +486,7 @@ private fun ShareScreenPreview() {
             targetDeviceConnected = true,
             transfers = emptyList(),
             isDropActive = false,
+            onBack = {},
             onChooseFiles = {},
             onFilesDropped = { _, permissions -> permissions?.release() },
             onDropActiveChanged = {},

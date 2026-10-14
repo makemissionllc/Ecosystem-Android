@@ -42,6 +42,12 @@ class ReceiveNotificationsPlugin : Plugin() {
     }
 
     override fun onPacketReceived(np: NetworkPacket): Boolean {
+        RemoteNotifications.receive(device.deviceId, np)
+        if (np.getBoolean("isCancel", false)) {
+            val id = np.getString("id")
+            context.getSystemService<NotificationManager>()?.cancel("kdeconnectId:${id}", id.toIntOrNull() ?: 0)
+            return true
+        }
         if ("ticker" !in np || "appName" !in np || "id" !in np) {
             Log.e("NotificationsPlugin", "Received notification packet lacks properties")
             return true
@@ -96,7 +102,19 @@ class ReceiveNotificationsPlugin : Plugin() {
 
     override val supportedPacketTypes: Array<String> = arrayOf(PACKET_TYPE_NOTIFICATION)
 
-    override val outgoingPacketTypes: Array<String> = arrayOf(PACKET_TYPE_NOTIFICATION_REQUEST)
+    fun reply(replyId: String, message: String) {
+        if (message.isBlank()) return
+        device.sendPacket(NetworkPacket("kdeconnect.notification.reply").apply {
+            this["requestReplyId"] = replyId
+            this["message"] = message
+        })
+    }
+
+    fun dismiss(id: String) {
+        device.sendPacket(NetworkPacket(PACKET_TYPE_NOTIFICATION_REQUEST).apply { this["cancel"] = id })
+    }
+
+    override val outgoingPacketTypes: Array<String> = arrayOf(PACKET_TYPE_NOTIFICATION_REQUEST, "kdeconnect.notification.reply")
 
     override val requiredPermissions: Array<String> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         arrayOf(Manifest.permission.POST_NOTIFICATIONS)

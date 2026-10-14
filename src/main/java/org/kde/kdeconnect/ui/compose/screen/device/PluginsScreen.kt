@@ -21,10 +21,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,6 +39,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -49,6 +53,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,6 +65,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -89,6 +95,7 @@ data class PluginDashboardItem(
     val iconRes: Int,
     val enabled: Boolean,
     val action: Plugin.PluginUiButton?,
+    val available: Boolean = true,
 )
 
 @Composable
@@ -108,6 +115,7 @@ fun PluginsScreen(
     remoteDeviceName: String,
     remoteDeviceIcon: Int,
     connectivityType: String?,
+    onConnectionClick: (() -> Unit)? = null,
 ) {
     PluginsScreenContent(
         pluginsWithButtons = pluginsWithButtons,
@@ -125,6 +133,7 @@ fun PluginsScreen(
         remoteDeviceName = remoteDeviceName,
         remoteDeviceIcon = remoteDeviceIcon,
         connectivityType = connectivityType,
+        onConnectionClick = onConnectionClick,
     )
 }
 
@@ -145,8 +154,10 @@ private fun PluginsScreenContent(
     remoteDeviceName: String,
     remoteDeviceIcon: Int,
     connectivityType: String?,
+    onConnectionClick: (() -> Unit)? = null,
 ) {
     val bottomPadding = safeDrawingBottomPadding().calculateBottomPadding()
+    val topPadding = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -165,25 +176,24 @@ private fun PluginsScreenContent(
                     .widthIn(max = 1280.dp)
                     .align(Alignment.TopCenter)
                     .verticalScroll(state = rememberScrollState())
-                    .padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = bottomPadding + 20.dp),
+                    .padding(start = 20.dp, top = topPadding + 20.dp, end = 20.dp, bottom = bottomPadding + 92.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (isWideLayout) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = stringResource(R.string.my_ecosystem), style = MaterialTheme.typography.headlineMedium)
+                        Text(text = stringResource(R.string.my_ecosystem), style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                         Spacer(Modifier.weight(1f))
                         clipboardAction?.let { button ->
                             Button(
                                 onClick = { onButtonClick(button) },
-                                modifier = Modifier.heightIn(min = 56.dp),
+                                modifier = Modifier.heightIn(min = 48.dp),
                                 shape = CircleShape,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.onSurface,
                                     contentColor = MaterialTheme.colorScheme.surface
                                 )
                             ) {
-                                Icon(painterResource(button.iconRes), contentDescription = null)
-                                Spacer(Modifier.width(10.dp))
                                 Text(text = button.name, style = MaterialTheme.typography.titleMedium)
                             }
                         }
@@ -192,9 +202,16 @@ private fun PluginsScreenContent(
                         }
                     }
                 } else {
-                    Text(text = stringResource(R.string.my_ecosystem), style = MaterialTheme.typography.headlineMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = stringResource(R.string.my_ecosystem), style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        IconButton(onClick = onDeviceMenuClick) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.extra_options))
+                        }
+                    }
                 }
 
+                Box(Modifier.then(if (onConnectionClick != null) Modifier.clickable(onClick = onConnectionClick) else Modifier)) {
                 ConnectionOverview(
                     localDeviceName = localDeviceName,
                     localDeviceIcon = localDeviceIcon,
@@ -202,19 +219,18 @@ private fun PluginsScreenContent(
                     remoteDeviceIcon = remoteDeviceIcon,
                     connectivityType = connectivityType,
                 )
+                }
 
                 if (!isWideLayout) clipboardAction?.let { button ->
                     Button(
                         onClick = { onButtonClick(button) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.onSurface,
                             contentColor = MaterialTheme.colorScheme.surface
                         )
                     ) {
-                        Icon(painterResource(button.iconRes), contentDescription = null)
-                        Spacer(Modifier.width(10.dp))
                         Text(text = button.name, style = MaterialTheme.typography.titleMedium)
                     }
                 }
@@ -226,6 +242,9 @@ private fun PluginsScreenContent(
                     onPluginEnabledChange = onPluginEnabledChange,
                 )
 
+                if (pluginsNeedPermissions.isNotEmpty() || pluginsNeedOptionalPermissions.isNotEmpty()) {
+                    Spacer(Modifier.height(96.dp))
+                }
                 if (pluginsNeedPermissions.isNotEmpty()) {
                     PluginPermissionSection(
                         title = stringResource(id = R.string.plugins_need_permission),
@@ -286,7 +305,7 @@ private fun ConnectionOverview(
                         color = Color(0xFF2EAD65),
                     ) {}
                     Text(text = stringResource(R.string.connected), style = MaterialTheme.typography.labelLarge)
-                    Text(text = "|", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = "·", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(text = connectivityType ?: stringResource(R.string.connection_generic),
                         style = MaterialTheme.typography.labelLarge)
                 }
@@ -434,7 +453,7 @@ private fun PluginButtons(
                     ) {
                         PluginButton(
                             plugin = plugin,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 156.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 112.dp),
                             onClick = { onPluginClick(plugin) },
                             onEnabledChange = { onPluginEnabledChange(plugin, it) },
                         )
@@ -465,12 +484,12 @@ private fun PluginButton(
         onClick = onClick,
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(18.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(40.dp),
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
@@ -478,16 +497,32 @@ private fun PluginButton(
                         painter = painterResource(id = plugin.iconRes),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(10.dp),
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                Switch(checked = plugin.enabled, onCheckedChange = onEnabledChange)
+                Switch(
+                    checked = plugin.enabled,
+                    onCheckedChange = onEnabledChange,
+                    enabled = plugin.available,
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = MaterialTheme.colorScheme.onBackground,
+                        checkedThumbColor = MaterialTheme.colorScheme.background,
+                        checkedBorderColor = MaterialTheme.colorScheme.onBackground,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurface,
+                        uncheckedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
+                        disabledCheckedTrackColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                        disabledCheckedThumbColor = MaterialTheme.colorScheme.background,
+                        disabledUncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        disabledUncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                )
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = plugin.name,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )

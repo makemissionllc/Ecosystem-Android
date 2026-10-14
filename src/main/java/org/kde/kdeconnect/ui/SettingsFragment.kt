@@ -379,6 +379,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         private const val SETTINGS_HEADER_KEY = "ecosystem.settings.header"
         const val KEY_BLUETOOTH_ENABLED: String = "bluetooth_enabled"
         const val KEY_APP_THEME: String = "theme_pref"
+        const val KEY_AUTO_CONNECT: String = "auto_connect_enabled"
     }
 }
 

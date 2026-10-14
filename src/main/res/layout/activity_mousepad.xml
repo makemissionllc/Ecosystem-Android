@@ -1,81 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<!--
-SPDX-FileCopyrightText: 2014 Ahmed I. Khalil <ahmedibrahimkhali@gmail.com>
-
-SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
--->
-
-<androidx.coordinatorlayout.widget.CoordinatorLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    xmlns:tools="http://schemas.android.com/tools"
-    tools:context="org.kde.kdeconnect.plugins.mousepad.MousePadActivity">
-
-    <include layout="@layout/toolbar" android:id="@+id/toolbar_layout" />
-
-    <RelativeLayout
-        android:id="@+id/mousepad_view"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:keepScreenOn="true"
-        android:orientation="vertical"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-        <TextView
-            style="@android:style/TextAppearance.Medium"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:gravity="center"
-            android:padding="12dip"
-            android:importantForAccessibility="no"
-            android:text="@string/mousepad_info" />
-
-        <org.kde.kdeconnect.plugins.mousepad.KeyListenerView
-            android:id="@+id/keyListener"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:focusedByDefault="true"
-            android:layout_above="@id/mouse_buttons"
-            android:contentDescription="@string/mousepad_info_no_gestures"
-            />
-
-        <LinearLayout
-                android:id="@+id/mouse_buttons"
-                android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:orientation="horizontal"
-                android:layout_alignParentBottom="true">
-
-            <com.google.android.material.button.MaterialButton
-                    android:id="@+id/mouse_click_left"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:contentDescription="@string/left_click"
-                    android:layout_weight="3"
-                    app:icon="@drawable/left_click_48dp"
-                    style="@style/KdeConnectButton.IconButton" />
-
-            <com.google.android.material.button.MaterialButton
-                    android:id="@+id/mouse_click_middle"
-                    android:layout_width="wrap_content"
-                    android:contentDescription="@string/middle_click"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    style="@style/KdeConnectButton.IconButton.Secondary" />
-
-            <com.google.android.material.button.MaterialButton
-                    android:id="@+id/mouse_click_right"
-                    android:layout_width="wrap_content"
-                    android:contentDescription="@string/right_click"
-                    android:layout_height="match_parent"
-                    android:layout_weight="3"
-                    app:icon="@drawable/right_click_48dp"
-                    style="@style/KdeConnectButton.IconButton" />
-
+<!-- SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
+    android:background="@color/ecosystem_toolbar" android:padding="20dp">
+    <include layout="@layout/toolbar" android:id="@+id/toolbar_layout" android:visibility="gone" />
+    <TextView android:id="@+id/touchpad_title" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="76dp" android:text="@string/feature_touchpad_title" android:textSize="32sp" android:textStyle="bold"
+        android:textColor="@color/ecosystem_nav_text" android:paddingBottom="8dp" />
+    <TextView android:id="@+id/touchpad_subtitle" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textSize="16sp" android:textColor="@color/ecosystem_nav_secondary" android:layout_marginBottom="16dp" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="52dp" android:orientation="horizontal"
+        android:background="@drawable/ecosystem_settings_card" android:padding="4dp" android:layout_marginBottom="16dp">
+        <com.google.android.material.button.MaterialButton android:id="@+id/touchpad_tab" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1" android:text="@string/feature_touchpad"
+            android:textAllCaps="false" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="24dp" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/keyboard_tab" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1" android:text="@string/feature_keyboard"
+            android:textAllCaps="false" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="24dp" />
+    </LinearLayout>
+    <RelativeLayout android:id="@+id/mousepad_view" android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:keepScreenOn="true" android:background="@drawable/ecosystem_settings_card">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_centerInParent="true"
+            android:orientation="vertical" android:gravity="center" android:padding="16dp" android:importantForAccessibility="noHideDescendants">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center"
+                android:text="@string/feature_swipe_move" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/ecosystem_nav_secondary" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center"
+                android:layout_marginTop="8dp" android:text="@string/feature_tap_scroll" android:textSize="14sp" android:textColor="@color/ecosystem_nav_secondary" />
         </LinearLayout>
+        <org.kde.kdeconnect.plugins.mousepad.KeyListenerView android:id="@+id/keyListener" android:layout_width="1dp"
+            android:layout_height="1dp" android:focusedByDefault="true" android:contentDescription="@string/mousepad_info_no_gestures" />
     </RelativeLayout>
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+    <LinearLayout android:id="@+id/mouse_buttons" android:layout_width="match_parent" android:layout_height="58dp"
+        android:layout_marginTop="16dp" android:orientation="horizontal">
+        <com.google.android.material.button.MaterialButton android:id="@+id/mouse_click_left" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1" android:text="@string/left_click" android:textAllCaps="false"
+            app:cornerRadius="28dp" android:layout_marginEnd="6dp" app:backgroundTint="@color/ecosystem_settings_card" android:textColor="@color/ecosystem_nav_text"
+            app:strokeWidth="1dp" app:strokeColor="@color/ecosystem_nav_secondary" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/mouse_click_middle" android:layout_width="0dp"
+            android:layout_height="0dp" android:visibility="gone" android:contentDescription="@string/middle_click" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/mouse_click_right" android:layout_width="0dp"
+            android:layout_height="match_parent" android:layout_weight="1" android:text="@string/right_click" android:textAllCaps="false"
+            app:cornerRadius="28dp" android:layout_marginStart="6dp" app:backgroundTint="@color/ecosystem_settings_card" android:textColor="@color/ecosystem_nav_text"
+            app:strokeWidth="1dp" app:strokeColor="@color/ecosystem_nav_secondary" />
+    </LinearLayout>
+</LinearLayout>

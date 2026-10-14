@@ -138,6 +138,11 @@ class MousePadActivity :
         setSupportActionBar(binding.toolbarLayout.toolbar)
         requireNotNull(supportActionBar).setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowHomeEnabled(true)
+        supportActionBar?.hide()
+        binding.touchpadTitle.setOnClickListener { onSupportNavigateUp() }
+        binding.touchpadTab.setOnClickListener { hideKeyboard() }
+        binding.keyboardTab.setOnClickListener { showKeyboard() }
+        binding.mousepadView.setOnTouchListener { _, event -> onTouchEvent(event) }
         binding.mouseClickLeft.setOnClickListener { sendLeftClick() }
         binding.mouseClickMiddle.setOnClickListener { sendMiddleClick() }
         binding.mouseClickRight.setOnClickListener { sendRightClick() }
@@ -148,6 +153,7 @@ class MousePadActivity :
             return
         }
 
+        binding.touchpadSubtitle.text = getString(R.string.feature_controlling, KdeConnect.getInstance().getDevice(deviceId)?.name.orEmpty())
         window.decorView.isHapticFeedbackEnabled = true
 
         mDetector = GestureDetector(this, this)
@@ -168,18 +174,7 @@ class MousePadActivity :
         // but since ydpi is usually almost equal to xdpi, only xdpi is used for the multiplier.
         displayDpiMultiplier = StandardDpi / resources.displayMetrics.xdpi
 
-        val decorView = window.decorView
-        decorView.setOnSystemUiVisibilityChangeListener { visibility ->
-            if ((visibility and View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
-                var fullscreenType = 0
 
-                fullscreenType = fullscreenType or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                fullscreenType = fullscreenType or View.SYSTEM_UI_FLAG_FULLSCREEN
-                fullscreenType = fullscreenType or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-
-                window.decorView.systemUiVisibility = fullscreenType
-            }
-        }
     }
 
     override fun onResume() {
@@ -538,7 +533,18 @@ class MousePadActivity :
         }
     }
 
+    private fun updateTabs(keyboard: Boolean) {
+        val selected = androidx.core.content.ContextCompat.getColor(this, R.color.ecosystem_settings_icon)
+        val normal = androidx.core.content.ContextCompat.getColor(this, R.color.ecosystem_settings_card)
+        val foreground = androidx.core.content.ContextCompat.getColor(this, R.color.ecosystem_nav_text)
+        binding.touchpadTab.backgroundTintList = android.content.res.ColorStateList.valueOf(if (keyboard) normal else selected)
+        binding.keyboardTab.backgroundTintList = android.content.res.ColorStateList.valueOf(if (keyboard) selected else normal)
+        binding.touchpadTab.setTextColor(foreground)
+        binding.keyboardTab.setTextColor(foreground)
+    }
+
     private fun hideKeyboard() {
+        updateTabs(false)
         val imm = getSystemService<InputMethodManager>()
         if (::keyListenerView.isInitialized) {
             imm?.hideSoftInputFromWindow(keyListenerView.windowToken, 0)
@@ -546,6 +552,7 @@ class MousePadActivity :
     }
 
     private fun showKeyboard() {
+        updateTabs(true)
         val imm = getSystemService<InputMethodManager>()
         if (::keyListenerView.isInitialized) {
             keyListenerView.requestFocus()
@@ -617,7 +624,7 @@ class MousePadActivity :
                 return
             }
         }
-        if (p.getBoolean("pref_mousepad_show_keyboard", true)) {
+        if (p.getBoolean("pref_mousepad_show_keyboard", false)) {
             if (hasWindowFocus()) {
                 showKeyboard()
             } else {

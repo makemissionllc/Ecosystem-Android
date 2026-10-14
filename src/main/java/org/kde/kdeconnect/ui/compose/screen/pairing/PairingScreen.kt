@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -61,6 +63,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.painterResource
@@ -156,12 +159,15 @@ private fun WidePairingContent(
     showOverflow: Boolean,
     onMoreClick: () -> Unit,
 ) {
+    val statusBarPadding = if (LocalContext.current.resources.configuration.screenWidthDp < 600) {
+        with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
+    } else 0.dp
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .widthIn(max = 1440.dp)
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(start = 24.dp, top = statusBarPadding + 20.dp, end = 24.dp, bottom = 88.dp),
             horizontalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Column(
@@ -202,8 +208,11 @@ private fun CompactPairingContent(
     showOverflow: Boolean,
     onMoreClick: () -> Unit,
 ) {
+    val statusBarPadding = if (LocalContext.current.resources.configuration.screenWidthDp < 600) {
+        with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
+    } else 0.dp
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().padding(start = 16.dp, top = statusBarPadding, end = 16.dp, bottom = 80.dp),
         contentPadding = safeDrawingBottomPadding(),
         state = lazyListState,
         verticalArrangement = Arrangement.spacedBy(12.dp)

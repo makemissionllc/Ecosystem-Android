@@ -66,6 +66,7 @@ class ShareFragment : Fragment() {
                         targetDeviceConnected = targetDeviceConnected,
                         transfers = transfers,
                         isDropActive = isDropActive,
+                        onBack = { (activity as? MainActivity)?.onDeviceSelected(targetDeviceId) },
                         onChooseFiles = { filePicker.launch(arrayOf("*/*")) },
                         onFilesDropped = ::sendFiles,
                         onDropActiveChanged = { isDropActive = it },
