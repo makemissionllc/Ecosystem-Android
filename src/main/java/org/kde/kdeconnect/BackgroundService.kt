@@ -174,7 +174,6 @@ class BackgroundService : Service() {
         this.applicationInstance = KdeConnect.getInstance()
         instance = this
         DisconnectLog.serviceStarted(this)
-        DisconnectLog.serviceStarted(this)
         // Promote before starting discovery: Android gives a newly started service only a
         // short deadline to enter foreground mode.
         if (!promoteToForeground()) {
@@ -271,7 +270,6 @@ class BackgroundService : Service() {
 
     override fun onDestroy() {
         Log.d("KdeConnect/BgService", "onDestroy")
-        DisconnectLog.serviceStopped(this)
         DisconnectLog.serviceStopped(this)
         initialized = false
         recovery.stop()
