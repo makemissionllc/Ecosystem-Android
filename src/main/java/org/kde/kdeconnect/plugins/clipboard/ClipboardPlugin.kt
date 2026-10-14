@@ -93,6 +93,7 @@ class ClipboardPlugin : Plugin() {
 
     @VisibleForTesting
     fun propagateClipboard(content: String) {
+        ClipboardHistory.record(context, content, org.kde.kdeconnect.helpers.DeviceHelper.getDeviceName(context))
         val np = NetworkPacket(PACKET_TYPE_CLIPBOARD)
         np["content"] = content
         device.sendPacket(np)

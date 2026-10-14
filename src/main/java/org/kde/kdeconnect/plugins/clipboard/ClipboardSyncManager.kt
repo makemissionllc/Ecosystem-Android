@@ -41,6 +41,7 @@ internal data class ClipboardSyncSettings(
     val trustedWifiOnly: Boolean,
     val plainTextOnly: Boolean,
     val showConfirmation: Boolean,
+    val pausedUntil: Long = 0,
 )
 
 internal object ClipboardSyncPreferences {
@@ -57,6 +58,7 @@ internal object ClipboardSyncPreferences {
             trustedWifiOnly = it.getBoolean(KEY_TRUSTED_WIFI, false),
             plainTextOnly = it.getBoolean(KEY_PLAIN_TEXT_ONLY, true),
             showConfirmation = it.getBoolean(KEY_CONFIRMATION, true),
+            pausedUntil = it.getLong("paused_until", 0),
         )
     }
 
@@ -68,6 +70,7 @@ internal object ClipboardSyncPreferences {
             putBoolean(KEY_TRUSTED_WIFI, next.trustedWifiOnly)
             putBoolean(KEY_PLAIN_TEXT_ONLY, next.plainTextOnly)
             putBoolean(KEY_CONFIRMATION, next.showConfirmation)
+            putLong("paused_until", next.pausedUntil)
         }
     }
 
@@ -168,6 +171,8 @@ internal object ClipboardSyncManager {
         Shizuku.addRequestPermissionResultListener(permissionResult)
         ThreadHelper.execute(::replayPendingIncoming)
         refresh()
+        val pause = settings(context).pausedUntil - System.currentTimeMillis()
+        if (pause > 0) mainHandler.postDelayed({ refresh(); ThreadHelper.execute { flushPendingClipboard() } }, pause)
     }
 
     fun settings(context: Context) = ClipboardSyncPreferences.read(context)
@@ -177,6 +182,8 @@ internal object ClipboardSyncManager {
     fun updateSettings(context: Context, transform: (ClipboardSyncSettings) -> ClipboardSyncSettings) {
         ClipboardSyncPreferences.update(context, transform)
         refresh()
+        val pause = settings(context).pausedUntil - System.currentTimeMillis()
+        if (pause > 0) mainHandler.postDelayed({ refresh(); ThreadHelper.execute { flushPendingClipboard() } }, pause)
     }
 
     fun refresh() {
@@ -199,15 +206,16 @@ internal object ClipboardSyncManager {
 
     fun isAutomaticAvailable(context: Context): Boolean {
         val settings = ClipboardSyncPreferences.read(context)
-        return settings.enabled && watcherActive && isTrustedWifiAllowed(context, settings)
+        return settings.enabled && settings.pausedUntil <= System.currentTimeMillis() && watcherActive && isTrustedWifiAllowed(context, settings)
     }
 
     fun onLocalClipboardChanged(text: String, sensitive: Boolean, plainText: Boolean, remoteDevice: Boolean = false) {
         if (text.isBlank() || sensitive || remoteDevice) return
         val settings = ClipboardSyncPreferences.read(appContext)
-        if (!settings.enabled || !watcherActive || (settings.plainTextOnly && !plainText) ||
+        if (!settings.enabled || settings.pausedUntil > System.currentTimeMillis() || !watcherActive || (settings.plainTextOnly && !plainText) ||
             !isTrustedWifiAllowed(appContext, settings)) return
 
+        ClipboardHistory.record(appContext, text, org.kde.kdeconnect.helpers.DeviceHelper.getDeviceName(appContext))
         val hash = hash(text)
         synchronized(remoteHashes) {
             pruneRemoteHashes()
@@ -227,7 +235,8 @@ internal object ClipboardSyncManager {
     fun applyIncoming(context: Context, text: String?, id: String?, sourceName: String, sensitive: Boolean = false): Boolean {
         if (text.isNullOrBlank() || sensitive) return false
         val settings = ClipboardSyncPreferences.read(context)
-        if (id != null && !settings.enabled) return false
+        if (!id.isNullOrBlank() && (!settings.enabled || settings.pausedUntil > System.currentTimeMillis())) return false
+        ClipboardHistory.record(context, text, sourceName)
         if (!id.isNullOrBlank() && !beginIncomingDelivery(context, id, text, sourceName)) {
             ConnectionLab.recordClipboardDuplicate()
             return true
@@ -269,7 +278,9 @@ internal object ClipboardSyncManager {
     }
 
     private fun flushPendingClipboard() {
-        if (!initialized || !ClipboardSyncPreferences.read(appContext).enabled) return
+        if (!initialized) return
+        val settings = ClipboardSyncPreferences.read(appContext)
+        if (!settings.enabled || settings.pausedUntil > System.currentTimeMillis()) return
         val pending = synchronized(outboxLock) { readOutbox().toList() }
         val devices = KdeConnect.getInstance().devices
         pending.forEach { item ->
