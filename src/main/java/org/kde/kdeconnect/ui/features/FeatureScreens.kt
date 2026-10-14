@@ -548,16 +548,32 @@ private fun DeskPage(device: Device, now: Long, onBack: () -> Unit, onNavigate: 
         Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(28.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
             val tablet = (context as? MainActivity)?.isTwoPaneLayout == true
             val cardHeight = if (tablet) (LocalConfiguration.current.screenHeightDp - 240).coerceAtLeast(300).dp else 300.dp
-            Row(verticalAlignment = Alignment.Bottom) {
-                Column(Modifier.weight(1f)) {
-                    Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(now)), fontSize = if (tablet) 112.sp else 76.sp, fontWeight = FontWeight.Bold)
-                    Text(DateFormat.getDateInstance(DateFormat.FULL).format(Date(now)), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(now))
+            val date = DateFormat.getDateInstance(DateFormat.FULL).format(Date(now))
+            @Composable fun connectionStatus() {
                 Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface) {
                     Text(device.name + " · " + stringResource(if (device.isReachable) R.string.feature_connected else R.string.feature_disconnected),
                         Modifier.padding(12.dp), color = if (device.isReachable) Color(0xFF30D158) else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = onBack) { Icon(Icons.Filled.Close, stringResource(R.string.close)) }
+            }
+            if (tablet) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Column(Modifier.weight(1f)) {
+                        Text(time, fontSize = 112.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        Text(date, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    connectionStatus()
+                    IconButton(onClick = onBack) { Icon(Icons.Filled.Close, stringResource(R.string.close)) }
+                }
+            } else {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Column(Modifier.weight(1f)) {
+                        Text(time, fontSize = 76.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        Text(date, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = onBack) { Icon(Icons.Filled.Close, stringResource(R.string.close)) }
+                }
+                connectionStatus()
             }
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val wide = maxWidth >= 700.dp
