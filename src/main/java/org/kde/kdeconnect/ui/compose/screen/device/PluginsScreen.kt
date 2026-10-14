@@ -8,6 +8,9 @@ package org.kde.kdeconnect.ui.compose.screen.device
 
 import android.animation.ValueAnimator
 import android.os.Build
+import android.view.View
+import android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.animateContentSize
@@ -57,6 +60,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -107,7 +112,7 @@ fun PluginsScreen(
     onButtonClick: (Plugin.PluginUiButton) -> Unit,
     onPluginClick: (PluginDashboardItem) -> Unit,
     onPluginEnabledChange: (PluginDashboardItem, Boolean) -> Unit,
-    onDeviceMenuClick: () -> Unit,
+    onDeviceMenuClick: (View) -> Unit,
     actionNeedPermissions: (plugin: Plugin) -> Unit,
     actionNeedOptionalPermissions: (plugin: Plugin) -> Unit,
     localDeviceName: String,
@@ -146,7 +151,7 @@ private fun PluginsScreenContent(
     onButtonClick: (Plugin.PluginUiButton) -> Unit,
     onPluginClick: (PluginDashboardItem) -> Unit,
     onPluginEnabledChange: (PluginDashboardItem, Boolean) -> Unit,
-    onDeviceMenuClick: () -> Unit,
+    onDeviceMenuClick: (View) -> Unit,
     actionNeedPermissions: (plugin: Plugin) -> Unit,
     actionNeedOptionalPermissions: (plugin: Plugin) -> Unit,
     localDeviceName: String,
@@ -197,17 +202,13 @@ private fun PluginsScreenContent(
                                 Text(text = button.name, style = MaterialTheme.typography.titleMedium)
                             }
                         }
-                        IconButton(onClick = onDeviceMenuClick) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.extra_options))
-                        }
+                        DeviceOptionsButton(onDeviceMenuClick)
                     }
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(text = stringResource(R.string.my_ecosystem), style = MaterialTheme.typography.headlineLarge,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        IconButton(onClick = onDeviceMenuClick) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.extra_options))
-                        }
+                        DeviceOptionsButton(onDeviceMenuClick)
                     }
                 }
 
@@ -261,6 +262,27 @@ private fun PluginsScreenContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DeviceOptionsButton(onClick: (View) -> Unit) {
+    val anchor = remember { mutableStateOf<View?>(null) }
+    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        IconButton(onClick = { anchor.value?.let(onClick) }) {
+            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.extra_options))
+        }
+        AndroidView(
+            factory = { context ->
+                View(context).apply {
+                    isClickable = false
+                    isFocusable = false
+                    importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+                    alpha = 0f
+                }.also { anchor.value = it }
+            },
+            modifier = Modifier.align(Alignment.CenterEnd).size(1.dp),
+        )
     }
 }
 

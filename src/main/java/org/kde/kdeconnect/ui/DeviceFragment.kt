@@ -185,7 +185,7 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
     }
 
     private fun showDeviceOptions(anchor: View) {
-        PopupMenu(requireContext(), anchor).apply {
+        PopupMenu(requireContext(), anchor, android.view.Gravity.END).apply {
             populateDeviceMenu(menu)
         }.show()
     }
@@ -347,7 +347,7 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                                     onPluginEnabledChange = { pluginCard, enabled ->
                                         if (pluginCard.available) device.setPluginEnabled(pluginCard.pluginKey, enabled)
                                     },
-                                    onDeviceMenuClick = { showDeviceOptions(binding.deviceView) },
+                                    onDeviceMenuClick = { anchor -> showDeviceOptions(anchor) },
                                     actionNeedPermissions = { plugin ->
                                         plugin.permissionExplanationDialog.show(
                                             childFragmentManager,
