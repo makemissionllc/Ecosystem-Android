@@ -291,6 +291,7 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         cursorView?.let {
             windowManager.removeView(it)
         }
