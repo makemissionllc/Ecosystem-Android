@@ -9,15 +9,18 @@ package org.kde.kdeconnect
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.accessibilityservice.GestureDescription.StrokeDescription
+import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Path
 import android.graphics.PixelFormat
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Gravity
+import android.view.Display
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
@@ -44,6 +47,7 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
     private lateinit var windowManager : WindowManager
 
     private var cursorView : View? = null
+    private lateinit var windowContext: Context
     private val cursorLayout = LayoutParams(
         LayoutParams.WRAP_CONTENT,
         LayoutParams.WRAP_CONTENT,
@@ -78,13 +82,19 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
 
     override fun onCreate() {
         super.onCreate()
-        windowManager = getSystemService<WindowManager>()!!
+        val display = getSystemService<DisplayManager>()?.getDisplay(Display.DEFAULT_DISPLAY)
+        windowContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && display != null) {
+            createDisplayContext(display).createWindowContext(LayoutParams.TYPE_ACCESSIBILITY_OVERLAY, null)
+        } else {
+            this
+        }
+        windowManager = windowContext.getSystemService<WindowManager>()!!
         instance = this
         Log.i("KdeConnectAccessibilityService", "created")
     }
 
     override fun onServiceConnected() {
-        cursorView = View.inflate(baseContext, R.layout.mouse_receiver_cursor, null).apply {
+        cursorView = View.inflate(windowContext, R.layout.mouse_receiver_cursor, null).apply {
             // https://developer.android.com/training/system-ui/navigation.html#behind
             systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                     or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
