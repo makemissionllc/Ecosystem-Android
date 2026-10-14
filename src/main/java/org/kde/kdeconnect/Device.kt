@@ -142,11 +142,40 @@ class Device : PacketReceiver {
         fun onPluginsChanged(device: Device)
     }
 
+    val lastSeenAt: Long
+        get() = context.getSharedPreferences("ecosystem_last_seen", Context.MODE_PRIVATE).getLong(deviceId, 0)
+
+    val availableTransports: Set<ConnectionTransport>
+        get() = links.map { it.transport }.toSet()
+
+    var automaticLinkSelection: Boolean
+        get() = context.getSharedPreferences("ecosystem_link_selection", Context.MODE_PRIVATE).getBoolean(deviceId + ".auto", true)
+        set(value) {
+            val current = activeTransport
+            context.getSharedPreferences("ecosystem_link_selection", Context.MODE_PRIVATE).edit().putBoolean(deviceId + ".auto", value)
+                .putString(deviceId + ".transport", current?.name).apply()
+            synchronized(linkLock) { linkLock.notifyAll() }
+        }
+
+    fun selectTransport(transport: ConnectionTransport) {
+        if (transport !in availableTransports) return
+        context.getSharedPreferences("ecosystem_link_selection", Context.MODE_PRIVATE).edit()
+            .putString(deviceId + ".transport", transport.name).apply()
+        synchronized(linkLock) { linkLock.notifyAll() }
+    }
+
+    private fun preferredLinks(): List<BaseLink> {
+        val ordered = FallbackLinkManager.preferredFirst(links)
+        if (automaticLinkSelection) return ordered
+        val preferred = context.getSharedPreferences("ecosystem_link_selection", Context.MODE_PRIVATE).getString(deviceId + ".transport", null)
+        return ordered.filter { it.transport.name == preferred }
+    }
+
     val connectivityType: String?
-        get() = FallbackLinkManager.preferredFirst(links).firstOrNull()?.let { context.getString(it.transport.labelRes) }
+        get() = preferredLinks().firstOrNull()?.let { context.getString(it.transport.labelRes) }
 
     val activeTransport: ConnectionTransport?
-        get() = FallbackLinkManager.preferredFirst(links).firstOrNull()?.transport
+        get() = preferredLinks().firstOrNull()?.transport
 
     val name: String
         get() = deviceInfo.name
@@ -370,6 +399,7 @@ class Device : PacketReceiver {
 
         link.removePacketReceiver(this)
         links.remove(link)
+        context.getSharedPreferences("ecosystem_last_seen", Context.MODE_PRIVATE).edit().putLong(deviceId, System.currentTimeMillis()).apply()
         synchronized(linkLock) { linkLock.notifyAll() }
         Log.i(
             "KDE/Device",
@@ -529,10 +559,24 @@ class Device : PacketReceiver {
             return false
         }
 
+        val payloadSize = np.payload?.payloadSize ?: 0
+        if (payloadSize > 10L * 1024 * 1024 && androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean("travel_mode", false)) {
+            val network = context.getSystemService(android.net.ConnectivityManager::class.java)
+            val mobile = network?.getNetworkCapabilities(network.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true
+            if (mobile && activeTransport == ConnectionTransport.TAILSCALE) {
+                callback.onFailure(IOException(context.getString(org.kde.kdeconnect_tp.R.string.feature_travel_transfer_blocked)))
+                return false
+            }
+        }
         // Payloads and packets too large for Bluetooth remain queued until a faster link returns.
         var disconnectedAt = 0L
         synchronized(linkLock) {
-            while (links.none { FallbackLinkManager.canSend(it, np) }) {
+            while (preferredLinks().none { FallbackLinkManager.canSend(it, np) }) {
+                if (!automaticLinkSelection && links.isNotEmpty()) {
+                    callback.onFailure(IOException("The selected connection cannot send this packet. Enable automatic switching or select an available link."))
+                    return false
+                }
                 try {
                     if (links.isEmpty()) {
                         if (disconnectedAt == 0L) disconnectedAt = android.os.SystemClock.elapsedRealtime()
@@ -558,7 +602,7 @@ class Device : PacketReceiver {
 
         val sendStartedAt = android.os.SystemClock.elapsedRealtime()
         var selectedLink: BaseLink? = null
-        val success = FallbackLinkManager.preferredFirst(links).any { link ->
+        val success = preferredLinks().any { link ->
             if (!FallbackLinkManager.canSend(link, np)) return@any false
             try {
                 link.sendPacket(np, callback, sendPayloadFromSameThread).also { sent ->

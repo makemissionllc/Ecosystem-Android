@@ -12,6 +12,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
+import java.text.DateFormat
+import java.util.Date
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -32,6 +37,10 @@ internal data class HealthCheckState(
     val clipboardAutomaticAvailable: Boolean = false,
     val keepAlive: KeepAliveReport = KeepAliveReport(),
     val keepAliveBusy: Boolean = false,
+    val foregroundRunning: Boolean = false,
+    val oemBatteryConfirmed: Boolean = false,
+    val oemRecentsConfirmed: Boolean = false,
+    val companionReady: Boolean = false,
 )
 
 @Composable
@@ -45,12 +54,12 @@ internal fun HealthCheckScreen(
     onOpenNotifications: () -> Unit,
     onOpenOemSettings: () -> Unit,
     onOpenOemBattery: () -> Unit,
-    onConfirmAutostart: () -> Unit,
     onOpenClipboardSettings: () -> Unit,
     onOpenShizukuSetup: () -> Unit,
     onApplyKeepAlive: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onOpenCompanion: () -> Unit,
+    onConfirmOem: (String, Boolean) -> Unit,
 ) {
     FoundationPage(R.string.health_title, onBack) {
         Text(stringResource(R.string.health_summary), style = MaterialTheme.typography.bodyLarge)
@@ -64,11 +73,16 @@ internal fun HealthCheckScreen(
         }
         FoundationCard {
             Text(stringResource(R.string.keep_alive_title), style = MaterialTheme.typography.titleLarge)
+            StatusLine(state.foregroundRunning, stringResource(R.string.keep_alive_connection_title))
             StatusLine(state.batteryUnrestricted, stringResource(R.string.keep_alive_battery))
             StatusLine(state.keepAlive.backgroundAllowed && !state.keepAlive.error,
                 stringResource(R.string.keep_alive_background))
             StatusLine(state.keepAlive.standbyProtected && !state.keepAlive.error,
                 stringResource(R.string.keep_alive_standby))
+            if (state.keepAlive.checkedAt > 0) {
+                Text(stringResource(R.string.keep_alive_last_checked, DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                    .format(Date(state.keepAlive.checkedAt))), style = MaterialTheme.typography.bodySmall)
+            }
             Text(stringResource(R.string.keep_alive_explanation), style = MaterialTheme.typography.bodyMedium)
             if (state.keepAlive.error) Text(stringResource(R.string.keep_alive_failed), color = MaterialTheme.colorScheme.error)
             Button(onClick = onApplyKeepAlive, enabled = state.shizuku.authorized && !state.keepAliveBusy) {
@@ -86,7 +100,7 @@ internal fun HealthCheckScreen(
             }
         }
         FoundationCard {
-            Text(stringResource(R.string.companion_title), style = MaterialTheme.typography.titleLarge)
+            StatusLine(state.companionReady, stringResource(R.string.companion_title))
             Text(stringResource(R.string.companion_explanation), style = MaterialTheme.typography.bodyMedium)
             Button(onClick = onOpenCompanion) { Text(stringResource(R.string.companion_setup)) }
         }
@@ -126,17 +140,29 @@ internal fun HealthCheckScreen(
             TextButton(onClick = onOpenClipboardSettings) { Text(stringResource(R.string.clipboard_sync_title)) }
         }
         FoundationCard {
-            StatusLine(state.oemAutostartConfirmed,
-                stringResource(if (state.oemAutostartConfirmed) R.string.health_oem_ok else R.string.health_oem_missing, state.oemName))
+            Text(stringResource(R.string.keep_alive_oem_title, state.oemName), style = MaterialTheme.typography.titleLarge)
             Text(state.oemInstructions, style = MaterialTheme.typography.bodyMedium)
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Button(onClick = onOpenOemSettings) { Text(stringResource(R.string.health_open_autostart)) }
-                TextButton(onClick = onOpenOemBattery) { Text(stringResource(R.string.health_open_oem_battery)) }
-                if (!state.oemAutostartConfirmed) {
-                    TextButton(onClick = onConfirmAutostart) { Text(stringResource(R.string.health_confirm_autostart)) }
-                }
-            }
+            Text(stringResource(R.string.keep_alive_oem_manual), style = MaterialTheme.typography.bodySmall)
+            OemConfirmation(state.oemAutostartConfirmed, R.string.keep_alive_oem_autostart) { onConfirmOem("oem_autostart_confirmed", it) }
+            Button(onClick = onOpenOemSettings) { Text(stringResource(R.string.health_open_autostart)) }
+            OemConfirmation(state.oemBatteryConfirmed, R.string.keep_alive_oem_battery) { onConfirmOem("oem_battery_confirmed", it) }
+            TextButton(onClick = onOpenOemBattery) { Text(stringResource(R.string.health_open_oem_battery)) }
+            OemConfirmation(state.oemRecentsConfirmed, R.string.keep_alive_oem_recents) { onConfirmOem("oem_recents_confirmed", it) }
+            Text(stringResource(R.string.keep_alive_recents_steps), style = MaterialTheme.typography.bodyMedium)
         }
         Button(onClick = onCheck) { Text(stringResource(R.string.background_check_again)) }
+    }
+}
+
+@Composable
+private fun OemConfirmation(confirmed: Boolean, label: Int, onChanged: (Boolean) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(stringResource(label), style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(if (confirmed) R.string.keep_alive_confirmed else R.string.keep_alive_not_confirmed),
+                style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(checked = confirmed, onCheckedChange = onChanged)
     }
 }

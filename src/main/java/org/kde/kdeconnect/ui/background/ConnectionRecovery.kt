@@ -9,8 +9,10 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.preference.PreferenceManager
 import org.kde.kdeconnect.KdeConnect
 import org.kde.kdeconnect.helpers.TrustedDevices
+import org.kde.kdeconnect.ui.SettingsFragment
 import kotlin.random.Random
 
 /** One timer per connection service; no alarms, polling while offline, or permanent wake locks. */
@@ -66,7 +68,12 @@ internal class ConnectionRecovery(private val context: Context, private val disc
         }
     }
 
+    fun settingsChanged() {
+        handler.post { update() }
+    }
+
     private fun shouldRetry(): Boolean = !stopped && online &&
+        PreferenceManager.getDefaultSharedPreferences(context).getBoolean(SettingsFragment.KEY_AUTO_CONNECT, true) &&
         KdeConnect.getInstance().devices.values.any {
             it.isPaired && !it.isReachable && TrustedDevices.isTrustedDevice(context, it.deviceId)
         }

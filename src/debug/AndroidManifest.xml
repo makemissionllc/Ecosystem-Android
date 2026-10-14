@@ -6,9 +6,15 @@ SPDX-FileCopyrightText: 2026 Albert Vaca Cintora <albertvaka@gmail.com>
 SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
 -->
 
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application>
+        <activity
+            android:name="org.kde.kdeconnect.ui.background.BackgroundFeaturesActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP"
+            tools:replace="android:exported" />
         <activity
             android:name="org.kde.kdeconnect.QuitActivity"
             android:exported="true"

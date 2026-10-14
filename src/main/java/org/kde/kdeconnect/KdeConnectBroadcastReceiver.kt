@@ -15,6 +15,8 @@ import android.net.ConnectivityManager
 import android.net.wifi.WifiManager
 import android.util.Log
 import android.os.PowerManager
+import org.kde.kdeconnect.ui.background.DisconnectLog
+import org.kde.kdeconnect.ui.background.DisconnectCause
 
 class KdeConnectBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -25,11 +27,13 @@ class KdeConnectBroadcastReceiver : BroadcastReceiver() {
         when (action) {
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 Log.i("KdeConnect", "MyUpdateReceiver")
+                DisconnectLog.noteRestart(context, DisconnectCause.APP_UPDATE)
                 BackgroundService.Start(context)
             }
 
             Intent.ACTION_BOOT_COMPLETED -> {
                 Log.i("KdeConnect", "KdeConnectBroadcastReceiver")
+                DisconnectLog.noteRestart(context, DisconnectCause.REBOOT)
                 try {
                     BackgroundService.Start(context)
                 } catch (e: IllegalStateException) { // To catch ForegroundServiceStartNotAllowedException

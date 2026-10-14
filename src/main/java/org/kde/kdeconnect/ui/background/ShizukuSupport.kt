@@ -44,7 +44,12 @@ internal object ShizukuSupport {
             prefs.edit { putBoolean("shizuku_seen", true) }
             NotificationManagerCompat.from(appContext).cancel(NOTIFICATION_ID)
         }
-        Shizuku.addBinderDeadListener { remind(appContext) }
+        Shizuku.addBinderDeadListener {
+            if (org.kde.kdeconnect.plugins.clipboard.ClipboardSyncManager.settings(appContext).enabled) {
+                DisconnectLog.record(appContext, "clipboard", false, DisconnectCause.SHIZUKU_STOPPED, component = true)
+            }
+            remind(appContext)
+        }
         // Allow the provider time to receive the binder before checking after process startup.
         Handler(Looper.getMainLooper()).postDelayed({
             val boot = Settings.Global.getInt(appContext.contentResolver, Settings.Global.BOOT_COUNT, -1)

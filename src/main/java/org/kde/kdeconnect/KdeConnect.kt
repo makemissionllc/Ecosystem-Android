@@ -67,6 +67,7 @@ class KdeConnect : Application() {
         org.kde.kdeconnect.ui.background.KeepAliveSupport.initialize(this)
         LifecycleHelper.initializeObserver()
         loadRememberedDevicesFromSettings()
+        org.kde.kdeconnect.ui.features.SceneSupport.initialize(this)
         org.kde.kdeconnect.ui.background.HotspotSupport.initialize(this)
         org.kde.kdeconnect.ui.background.CompanionSupport.restore(this)
 
@@ -216,7 +217,12 @@ class KdeConnect : Application() {
             if (device != null) {
                 device.removeLink(link)
                 if (wasReachable && !device.isReachable && device.isPaired) {
-                    DisconnectLog.record(this@KdeConnect, device.name, connected = false)
+                    DisconnectLog.record(
+                        this@KdeConnect,
+                        device.name,
+                        connected = false,
+                        cause = DisconnectLog.connectionLostCause(this@KdeConnect, link),
+                    )
                     ConnectionLab.recordNoticed(previousLink.orEmpty(), "${link.name} disconnected")
                 } else if (wasReachable && previousLink != device.connectivityType) {
                     val nextLink = device.connectivityType.orEmpty()

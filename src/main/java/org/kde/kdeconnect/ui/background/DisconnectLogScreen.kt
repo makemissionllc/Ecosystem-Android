@@ -26,10 +26,16 @@ internal fun DisconnectLogScreen(entries: List<DisconnectLogEntry>, onBack: () -
             val dateFormat = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
             entries.forEach { entry ->
                 FoundationCard {
-                    StatusLine(entry.connected,
-                        if (entry.linkFrom != null && entry.linkTo != null) stringResource(R.string.connection_link_switch)
-                        else stringResource(if (entry.connected) R.string.disconnect_log_reconnected else R.string.disconnect_log_disconnected,
-                            entry.deviceName))
+                    val name = if (entry.component) stringResource(
+                        if (entry.deviceName == "clipboard") R.string.clipboard_sync_title else R.string.keep_alive_connection_title
+                    ) else entry.deviceName
+                    val message = when {
+                        entry.linkFrom != null && entry.linkTo != null -> stringResource(R.string.connection_link_switch)
+                        entry.component -> stringResource(R.string.disconnect_log_component_stopped, name)
+                        entry.connected -> stringResource(R.string.disconnect_log_reconnected, name)
+                        else -> stringResource(R.string.disconnect_log_disconnected, name)
+                    }
+                    StatusLine(entry.connected, message)
                     if (entry.linkFrom != null && entry.linkTo != null) {
                         Text("${entry.linkFrom} → ${entry.linkTo}", style = MaterialTheme.typography.bodyMedium)
                     }
@@ -37,7 +43,7 @@ internal fun DisconnectLogScreen(entries: List<DisconnectLogEntry>, onBack: () -
                     Text(dateFormat.format(Date(entry.timestamp)), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (!entry.connected) {
-                        Text(stringResource(R.string.disconnect_log_cause_hint), style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(entry.cause.text), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }

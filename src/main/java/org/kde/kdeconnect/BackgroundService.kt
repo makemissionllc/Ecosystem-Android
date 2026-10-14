@@ -24,6 +24,8 @@ import android.os.IBinder
 import android.os.PowerManager
 import org.kde.kdeconnect.ui.background.ConnectionRecovery
 import org.kde.kdeconnect.ui.background.HotspotSupport
+import org.kde.kdeconnect.ui.background.DisconnectLog
+import org.kde.kdeconnect.ui.background.DisconnectCause
 import android.util.Log
 import androidx.annotation.MainThread
 import androidx.core.app.NotificationCompat
@@ -70,11 +72,14 @@ class BackgroundService : Service() {
             val capabilities = connectivityManager?.getNetworkCapabilities(network)
             val interfaceName = connectivityManager?.getLinkProperties(network)?.interfaceName.orEmpty()
             val isHotspot = HotspotSupport.onNetworkAvailable(network)
-            synchronized(availableNetworks) {
+            val wifi = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+            val changed = synchronized(availableNetworks) {
+                val hadNetwork = availableNetworks.isNotEmpty() && !availableNetworks.contains(network)
                 availableNetworks.add(network)
-                if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true &&
-                    !interfaceName.startsWith("p2p", ignoreCase = true)) wifiNetworks.add(network)
+                if (wifi && !interfaceName.startsWith("p2p", ignoreCase = true)) wifiNetworks.add(network)
+                hadNetwork
             }
+            DisconnectLog.networkAvailable(wifi, changed)
             when {
                 isHotspot -> setActiveLinkTransport(ConnectionTransport.HOTSPOT)
                 capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true -> Unit
@@ -90,14 +95,12 @@ class BackgroundService : Service() {
         }
 
         override fun onLost(network: Network) {
-            val hasNetwork = synchronized(availableNetworks) {
+            val (wasWifi, hasNetwork, hasWifi) = synchronized(availableNetworks) {
+                val hadWifi = wifiNetworks.remove(network)
                 availableNetworks.remove(network)
-                availableNetworks.isNotEmpty()
+                Triple(hadWifi, availableNetworks.isNotEmpty(), wifiNetworks.isNotEmpty())
             }
-            val hasWifi = synchronized(availableNetworks) {
-                wifiNetworks.remove(network)
-                wifiNetworks.isNotEmpty()
-            }
+            DisconnectLog.networkLost(this@BackgroundService, wasWifi, hasNetwork)
             if (!hasWifi) setActiveLinkTransport(ConnectionTransport.WIFI)
             isConnectedToNonCellularNetwork.postValue(hasNetwork)
             onNetworkChange(network)
@@ -152,6 +155,10 @@ class BackgroundService : Service() {
         linkProviders.filterIsInstance<LanLinkProvider>().forEach { it.setActiveTransport(transport) }
     }
 
+    fun refreshAutoConnectSetting() {
+        recovery.settingsChanged()
+    }
+
     fun announceIdentityOnNetwork(transport: ConnectionTransport, address: java.net.InetAddress, network: Network) {
         linkProviders.filterIsInstance<LanLinkProvider>().forEach { provider ->
             provider.setActiveTransport(transport)
@@ -166,6 +173,8 @@ class BackgroundService : Service() {
         Log.d("KdeConnect/BgService", "onCreate")
         this.applicationInstance = KdeConnect.getInstance()
         instance = this
+        DisconnectLog.serviceStarted(this)
+        DisconnectLog.serviceStarted(this)
         // Promote before starting discovery: Android gives a newly started service only a
         // short deadline to enter foreground mode.
         if (!promoteToForeground()) {
@@ -262,6 +271,8 @@ class BackgroundService : Service() {
 
     override fun onDestroy() {
         Log.d("KdeConnect/BgService", "onDestroy")
+        DisconnectLog.serviceStopped(this)
+        DisconnectLog.serviceStopped(this)
         initialized = false
         recovery.stop()
         synchronized(availableNetworks) { availableNetworks.clear(); wifiNetworks.clear() }
@@ -300,6 +311,7 @@ class BackgroundService : Service() {
         }
         true
     } catch (e: RuntimeException) {
+        DisconnectLog.record(this, "connection", false, DisconnectCause.SERVICE_BLOCKED, component = true)
         Log.w(LOG_TAG, "Foreground service could not start", e)
         false
     }
@@ -340,6 +352,7 @@ class BackgroundService : Service() {
             try {
                 ContextCompat.startForegroundService(context, intent)
             } catch (e: RuntimeException) {
+                DisconnectLog.record(context, "connection", false, DisconnectCause.SERVICE_BLOCKED, component = true)
                 Log.w(LOG_TAG, "Android did not allow the connection service to start", e)
             }
         }
@@ -351,6 +364,7 @@ class BackgroundService : Service() {
             try {
                 ContextCompat.startForegroundService(context, intent)
             } catch (e: RuntimeException) {
+                DisconnectLog.record(context, "connection", false, DisconnectCause.SERVICE_BLOCKED, component = true)
                 Log.w(LOG_TAG, "Android did not allow the connection service to start", e)
             }
         }

@@ -153,8 +153,8 @@ class BackgroundFeaturesActivity : AppCompatActivity() {
                         onOpenOemBattery = ::openOemBatterySettings,
                         onOpenClipboardSettings = { openClipboardSync() },
                         onOpenShizukuSetup = { openShizukuSetup() },
-                        onConfirmAutostart = {
-                            getSharedPreferences(PREFERENCES, MODE_PRIVATE).edit { putBoolean(KEY_OEM_AUTOSTART_CONFIRMED, true) }
+                        onConfirmOem = { key, checked ->
+                            getSharedPreferences(PREFERENCES, MODE_PRIVATE).edit { putBoolean(key, checked) }
                             refresh()
                         })
                 } else if (showingClipboardSync) {
@@ -277,6 +277,12 @@ class BackgroundFeaturesActivity : AppCompatActivity() {
         }
         healthState = HealthCheckState(
             shizuku = shizukuState,
+            foregroundRunning = BackgroundService.instance != null,
+            oemBatteryConfirmed = getSharedPreferences(PREFERENCES, MODE_PRIVATE).getBoolean("oem_battery_confirmed", false),
+            oemRecentsConfirmed = getSharedPreferences(PREFERENCES, MODE_PRIVATE).getBoolean("oem_recents_confirmed", false),
+            companionReady = CompanionSupport.associations(this).any {
+                CompanionSupport.deviceId(this, it.id)?.let { id -> org.kde.kdeconnect.helpers.TrustedDevices.isTrustedDevice(this, id) } == true && CompanionSupport.observing(this, it.id)
+            },
             batteryUnrestricted = powerManager?.isIgnoringBatteryOptimizations(packageName) == true,
             connectedDevice = KdeConnect.getInstance().devices.values.any { it.isPaired && it.isReachable },
             notificationAccess = notificationAccess,
