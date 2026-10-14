@@ -4,9 +4,11 @@ Ecosystem personal device link — Android app. Fork of [KDE Connect Android](ht
 
 Upstream features (shared clipboard, notification sync, file/URL share, media remote, virtual touchpad/keyboard, SMS, Find My Phone, etc.) are retained. This fork adds multi-transport fallback, Shizuku-backed background work, per-device Ecosystem screens, and a USB Connection Lab harness.
 
+For a fuller, current description of the app, implemented mockups, architecture, verification, and remaining feature ideas, see [`docs/APP_AND_WORK_LOG.md`](docs/APP_AND_WORK_LOG.md).
+
 ## Current status
 
-- Branch: `codex/connection-fallback` (HEAD `a6b75268`), ahead of `origin/master`.
+- Branch: `codex/connection-fallback`. Check `git status` and `git log` for the current local/remote state; this README is a project overview, not a live Git status report.
 - App: `versionName 1.36.0`, `versionCode 13600` in `build.gradle.kts:40-46`.
 - SDKs: `minSdk 23`, `targetSdk 37`, `compileSdk 37`, Java 11 + core-library desugaring, Compose + ViewBinding + AIDL + KSP (`build.gradle.kts:37-101`).
 - Toolchain: AGP `9.4.1`, Kotlin `2.4.21`, Shizuku `12.2.0` (pinned for API 23), coroutines `1.11.0`, SSHD `2.20.0` (`gradle/libs.versions.toml`).
@@ -124,7 +126,7 @@ Debug signing uses `debug.keystore` (`android/androiddebugkey`); release uses mi
 
 ## Known issues / TODO
 
-- **Build break (uncommitted UI): `ui/features/FeatureScreens.kt` + `SceneSupport.kt` reference ~86 `R.string.feature_*` with zero definitions in `src/main/res/values/*.xml`.** Either add `ecosystem_strings.xml` or remove the screens before `./gradlew assembleDebug` will pass.
+- The mockup screens now build. Their runtime permission flows and OEM-specific behavior still need end-to-end checking on the target phone and tablet; see [`docs/APP_AND_WORK_LOG.md`](docs/APP_AND_WORK_LOG.md) for known limits.
 - Untracked Ecosystem code (`plugins/ecosystem/`, `ui/features/`, `ClipboardHistory.kt`, `RemoteNotifications.kt`, `EcosystemSettingsFragment.kt`, 4 drawables) is not in any commit — review, add missing resources, then commit.
 - `fastlane/Appfile` still has `package_name("org.kde.kdeconnect_tp")`; runtime `applicationId` is `com.ecosystem.personal`. Update before any Play release; F-Droid metadata per tag is otherwise intact (33 locales).
 - Many `Graphics/Mockups/` PNGs show as modified in working tree — confirm intentional re-export before committing.
