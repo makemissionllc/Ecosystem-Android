@@ -42,6 +42,7 @@ This file records user-facing Ecosystem Android features and quality-of-life cha
 - Pairing refreshes now update only device data; connectivity and permission status are checked on screen entry or return from system settings instead of on every peer-list update.
 - Phone navigation selection now eases between the mockup's active and inactive pill colors, matching the app's short, interaction-driven motion elsewhere.
 - Unpaired devices now have the mockup's prominent Pair pill. Discovery and connection changes animate into place briefly, so the list feels responsive while it updates.
+- Bursts of discovery callbacks are now coalesced to one device-list conversion per frame, avoiding redundant UI work while nearby devices appear or reconnect.
 
 ### Availability notes
 

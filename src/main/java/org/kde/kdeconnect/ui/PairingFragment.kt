@@ -52,7 +52,12 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
 
     private val connectivityObserver = Observer<Boolean>(::updateConnectivityInfoHeader)
 
-    private var listRefreshCalledThisFrame = false
+    private var pairingScreenStarted = false
+    private var deviceListUpdateScheduled = false
+    private val deviceListUpdate = Runnable {
+        deviceListUpdateScheduled = false
+        if (pairingScreenStarted) updateDeviceList()
+    }
 
     private val menuProvider = object : MenuProvider {
 
@@ -215,14 +220,6 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
             return
         }
 
-        if (listRefreshCalledThisFrame) {
-            // This makes sure we don't try to call list.getFirstVisiblePosition()
-            // twice per frame, because the second time the list hasn't been drawn
-            // yet and it would always return 0.
-            return
-        }
-        listRefreshCalledThisFrame = true
-
         try {
             val allDevices = KdeConnect.getInstance().devices.values.filter {
                 it.isReachable || it.isPaired
@@ -231,9 +228,13 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
             viewModel.updateDevices(devices = allDevices)
         } catch (_: IllegalStateException) {
             // Ignore: The activity was closed while we were trying to update it
-        } finally {
-            listRefreshCalledThisFrame = false
         }
+    }
+
+    private fun scheduleDeviceListUpdate() {
+        if (!pairingScreenStarted || deviceListUpdateScheduled || !isAdded) return
+        deviceListUpdateScheduled = true
+        binding.composeView.postOnAnimation(deviceListUpdate)
     }
 
     private fun updateConnectivityInfoHeader(isConnectedToNonCellularNetwork: Boolean) {
@@ -258,6 +259,7 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
 
     override fun onStart() {
         super.onStart()
+        pairingScreenStarted = true
         updatePermissionsHeader()
         // These environment checks do not depend on the device list. Observe connectivity
         // once per view lifecycle instead of registering it for every peer-list callback.
@@ -268,7 +270,7 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
             service.isConnectedToNonCellularNetwork.observe(viewLifecycleOwner, connectivityObserver)
         }
         KdeConnect.getInstance().addDeviceListChangedCallback("PairingFragment") {
-            mActivity?.runOnUiThread { this.updateDeviceList() }
+            mActivity?.runOnUiThread { scheduleDeviceListUpdate() }
         }
         ForceRefreshConnections(requireContext()) // force a network re-discover
         updateDeviceList()
@@ -283,6 +285,9 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
     }
 
     override fun onStop() {
+        pairingScreenStarted = false
+        binding.composeView.removeCallbacks(deviceListUpdate)
+        deviceListUpdateScheduled = false
         KdeConnect.getInstance().removeDeviceListChangedCallback("PairingFragment")
         super.onStop()
     }

@@ -8,6 +8,8 @@ Settings keep the mockups' grouped-row presentation while allowing the whole tog
 
 Unpaired devices use the prominent pill-shaped Pair action shown in the discovery mockups. New and changed device rows use brief, keyed list transitions so status changes stay legible without continuous animation.
 
+Device-list callbacks received during the same display frame are coalesced before rebuilding discovery content. The pending update is canceled when the discovery screen stops, keeping hidden screens idle.
+
 ## Implemented behavior
 
 - Clipboard: private persistent text history, deduplication, pinned snippets, copy/send/delete, automatic-sync toggle, and a one-hour pause that survives process restarts. Sensitive clips are excluded. Recent history is limited to 100 entries; pinned items are retained.
