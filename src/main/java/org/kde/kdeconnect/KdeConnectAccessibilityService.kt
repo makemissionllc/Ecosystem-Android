@@ -83,7 +83,9 @@ open class KdeConnectAccessibilityService : AccessibilityService() {
     override fun onCreate() {
         super.onCreate()
         val display = getSystemService<DisplayManager>()?.getDisplay(Display.DEFAULT_DISPLAY)
-        windowContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && display != null) {
+        windowContext = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && display != null) {
+            createWindowContext(display, LayoutParams.TYPE_ACCESSIBILITY_OVERLAY, null)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && display != null) {
             createDisplayContext(display).createWindowContext(LayoutParams.TYPE_ACCESSIBILITY_OVERLAY, null)
         } else {
             this
