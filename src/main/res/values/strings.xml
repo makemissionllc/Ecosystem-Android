@@ -437,6 +437,7 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
     <string name="pairing_description">Nearby Ecosystem devices on your network should appear here.</string>
     <string name="device_favorite_add">Add to favorites</string>
     <string name="device_favorite_remove">Remove from favorites</string>
+    <string name="device_favorites_filter">Favorites</string>
     <string name="share_to_subtitle">Choose a device to send your content</string>
     <string name="share_action_send">Send</string>
     <string name="settings_category_device">Your device</string>
@@ -473,7 +474,7 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
     <string name="whats_new_navigation_title">Pick up without a reload</string>
     <string name="whats_new_navigation_body">Updates keep your dashboard in place, choosing the screen you already have open no longer reloads it, and the selected phone tab eases between its active and inactive states.</string>
     <string name="whats_new_favorites_title">Keep your favorite devices close</string>
-    <string name="whats_new_favorites_body">Star a device in its list or device menu to keep it at the top of the device list and navigation drawer. Favorites are saved on this device.</string>
+    <string name="whats_new_favorites_body">Star a device in its list or device menu to keep it at the top of the device list and navigation drawer. Use the Favorites filter to focus on starred devices; your favorites are saved on this device.</string>
     <string name="whats_new_pair_title">Pair with a clear next step</string>
     <string name="whats_new_pair_body">Unpaired devices now show the same prominent Pair pill as the mockups. New arrivals and connection changes settle into the list with a short, quiet transition.</string>
     <string name="whats_new_settings_title">Settings are easier to use</string>
@@ -487,7 +488,7 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
     <string name="tour_next">Next</string>
     <string name="tour_finish">Done</string>
     <string name="tour_devices_title">Pair your devices</string>
-    <string name="tour_devices_body">Nearby Ecosystem devices appear here. Tap the Pair pill to create a trusted link, then star regular devices in the list or device menu to keep them close. New arrivals and connection changes ease into the list; quick bursts are grouped into one update to keep discovery light. If discovery cannot find a device, add its IP address from the device menu.</string>
+    <string name="tour_devices_body">Nearby Ecosystem devices appear here. Tap the Pair pill to create a trusted link, then star regular devices and use the Favorites filter to focus on them. New arrivals and connection changes ease into the list; quick bursts are grouped into one update to keep discovery light. If discovery cannot find a device, add its IP address from the device menu.</string>
     <string name="tour_dashboard_title">Your device dashboard</string>
     <string name="tour_dashboard_body">See connection status, open everyday actions, and enable the plugins you use. Live updates keep your place, and Continue where you left off takes you back to your latest tool.</string>
     <string name="tour_share_title">Share in a couple of taps</string>

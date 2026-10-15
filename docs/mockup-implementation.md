@@ -8,6 +8,8 @@ Settings keep the mockups' grouped-row presentation while allowing the whole tog
 
 Unpaired devices use the prominent pill-shaped Pair action shown in the discovery mockups. New and changed device rows use brief, keyed list transitions so status changes stay legible without continuous animation.
 
+The discovery list can be filtered to starred devices across connected, nearby, and remembered groups. Its filter is shared between compact and wide layouts and only appears when a favorite is available.
+
 Device-list callbacks received during the same display frame are coalesced before rebuilding discovery content. The pending update is canceled when the discovery screen stops, keeping hidden screens idle.
 
 ## Implemented behavior

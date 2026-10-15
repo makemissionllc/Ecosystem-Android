@@ -38,6 +38,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +52,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,6 +102,14 @@ fun PairingScreen(
     val lazyListState = rememberLazyListState()
     val pullRefreshState = rememberPullToRefreshState()
     val hapticFeedback = LocalHapticFeedback.current
+    var favoritesOnly by rememberSaveable { mutableStateOf(false) }
+    val hasFavorites = remember(uiState.connected, uiState.available, uiState.remembered) {
+        (uiState.connected + uiState.available + uiState.remembered).any { it.isFavorite }
+    }
+    val favoriteFilterActive = favoritesOnly && hasFavorites
+    LaunchedEffect(hasFavorites) {
+        if (!hasFavorites) favoritesOnly = false
+    }
     var previousConnectedIds by remember { mutableStateOf(uiState.connected.map { it.id }.toSet()) }
     var previousAvailableIds by remember { mutableStateOf(uiState.available.map { it.id }.toSet()) }
     LaunchedEffect(uiState.connected.map { it.id }.toSet(), uiState.available.map { it.id }.toSet()) {
@@ -124,6 +134,9 @@ fun PairingScreen(
                     WidePairingContent(
                         lazyListState = lazyListState,
                         uiState = uiState,
+                        favoritesOnly = favoriteFilterActive,
+                        hasFavorites = hasFavorites,
+                        onFavoritesOnlyChange = { favoritesOnly = it },
                         onClick = onClick,
                         onFavoriteClick = onFavoriteClick,
                         onWifiSettingsClick = onWifiSettingsClick,
@@ -136,6 +149,9 @@ fun PairingScreen(
                     CompactPairingContent(
                         lazyListState = lazyListState,
                         uiState = uiState,
+                        favoritesOnly = favoriteFilterActive,
+                        hasFavorites = hasFavorites,
+                        onFavoritesOnlyChange = { favoritesOnly = it },
                         onClick = onClick,
                         onFavoriteClick = onFavoriteClick,
                         onWifiSettingsClick = onWifiSettingsClick,
@@ -154,6 +170,9 @@ fun PairingScreen(
 private fun WidePairingContent(
     lazyListState: LazyListState,
     uiState: PairingUiState,
+    favoritesOnly: Boolean,
+    hasFavorites: Boolean,
+    onFavoritesOnlyChange: (Boolean) -> Unit,
     onClick: (String) -> Unit,
     onFavoriteClick: (String) -> Unit,
     onWifiSettingsClick: () -> Unit,
@@ -194,7 +213,14 @@ private fun WidePairingContent(
                 state = lazyListState,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                DeviceSections(uiState = uiState, onClick = onClick, onFavoriteClick = onFavoriteClick)
+                DeviceSections(
+                    uiState = uiState,
+                    favoritesOnly = favoritesOnly,
+                    hasFavorites = hasFavorites,
+                    onFavoritesOnlyChange = onFavoritesOnlyChange,
+                    onClick = onClick,
+                    onFavoriteClick = onFavoriteClick,
+                )
             }
         }
     }
@@ -204,6 +230,9 @@ private fun WidePairingContent(
 private fun CompactPairingContent(
     lazyListState: LazyListState,
     uiState: PairingUiState,
+    favoritesOnly: Boolean,
+    hasFavorites: Boolean,
+    onFavoritesOnlyChange: (Boolean) -> Unit,
     onClick: (String) -> Unit,
     onFavoriteClick: (String) -> Unit,
     onWifiSettingsClick: () -> Unit,
@@ -231,7 +260,14 @@ private fun CompactPairingContent(
                 onLocalNetworkPermissionClick = onLocalNetworkPermissionClick
             )
         }
-        DeviceSections(uiState = uiState, onClick = onClick, onFavoriteClick = onFavoriteClick)
+        DeviceSections(
+            uiState = uiState,
+            favoritesOnly = favoritesOnly,
+            hasFavorites = hasFavorites,
+            onFavoritesOnlyChange = onFavoritesOnlyChange,
+            onClick = onClick,
+            onFavoriteClick = onFavoriteClick,
+        )
     }
 }
 
@@ -318,26 +354,52 @@ private fun RadarCard(modifier: Modifier = Modifier) {
 
 private fun LazyListScope.DeviceSections(
     uiState: PairingUiState,
+    favoritesOnly: Boolean,
+    hasFavorites: Boolean,
+    onFavoritesOnlyChange: (Boolean) -> Unit,
     onClick: (String) -> Unit,
     onFavoriteClick: (String) -> Unit,
 ) {
-    item { DeviceSectionHeader(stringResource(R.string.category_connected_devices)) }
-    if (uiState.connected.isEmpty()) {
-        item { EmptyPlaceholder() }
-    } else {
-        items(uiState.connected, key = { it.id }) { device ->
-            DeviceCard(device, onClick, onFavoriteClick, modifier = deviceItemAnimation())
+    val connected = if (favoritesOnly) uiState.connected.filter { it.isFavorite } else uiState.connected
+    val available = if (favoritesOnly) uiState.available.filter { it.isFavorite } else uiState.available
+    val remembered = if (favoritesOnly) uiState.remembered.filter { it.isFavorite } else uiState.remembered
+
+    item {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.devices),
+                modifier = Modifier.weight(1f).padding(top = 12.dp, bottom = 2.dp),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (hasFavorites) {
+                FilterChip(
+                    selected = favoritesOnly,
+                    onClick = { onFavoritesOnlyChange(!favoritesOnly) },
+                    label = { Text(stringResource(R.string.device_favorites_filter)) },
+                )
+            }
         }
     }
-    if (uiState.available.isNotEmpty()) {
+
+    if (!favoritesOnly || connected.isNotEmpty()) {
+        item { DeviceSectionHeader(stringResource(R.string.category_connected_devices)) }
+        if (connected.isEmpty()) {
+            item { EmptyPlaceholder() }
+        } else {
+            items(connected, key = { it.id }) { device ->
+                DeviceCard(device, onClick, onFavoriteClick, modifier = deviceItemAnimation())
+            }
+        }
+    }
+    if (available.isNotEmpty()) {
         item { DeviceSectionHeader(stringResource(R.string.category_not_paired_devices)) }
-        items(uiState.available, key = { it.id }) { device ->
+        items(available, key = { it.id }) { device ->
             DeviceCard(device, onClick, onFavoriteClick, modifier = deviceItemAnimation())
         }
     }
-    if (uiState.remembered.isNotEmpty()) {
+    if (remembered.isNotEmpty()) {
         item { DeviceSectionHeader(stringResource(R.string.category_remembered_devices)) }
-        items(uiState.remembered, key = { it.id }) { device ->
+        items(remembered, key = { it.id }) { device ->
             DeviceCard(device, onClick, onFavoriteClick, modifier = deviceItemAnimation())
         }
     }
