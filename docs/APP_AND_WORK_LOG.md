@@ -209,6 +209,15 @@ This collaboration has covered both the existing transport/reliability work in t
 - Screen controls are connected to the relevant plugin/device APIs and permission flows. A control that depends on Shizuku, accessibility, media projection, DND, or Android runtime permission reports or requests that dependency.
 - Feature replacement transitions use short directional fade/slide/scale animations, with reverse direction when returning to the device dashboard.
 
+### Quick Settings and Cast follow-up — 2026-10-15
+
+- Added the **Fresh connection** Quick Settings tile and Health/device-menu entry. It clears transient connection and clipboard delivery state, restarts Shizuku-backed services, reconnects paired devices, and preserves pairing, trusted devices, clipboard history, pins, and preferences. This tile is committed as `e504d3be`.
+- Added the **Cast** Quick Settings tile, a phone-side two-way picker, and a separate resizable mirror window with touch, swipe/scroll, back, home, recents, rotation, keyboard entry, and stop controls.
+- The Pad can ask a phone to share using the existing mirror request, consent activity, foreground notification, and frame/audio packet types. Phone-originated casts use a new optional `castWindow` control action to open the Pad viewer; the existing mirror frame protocol and pairing flow are unchanged.
+- Cast tries Shizuku shell freeform launch first, records normal-resizable fallback status in Health, and posts a high-priority tap-to-open notification when an incoming request cannot open a window from the background. Window bounds are saved for the next launch. A viewer heartbeat stops capture after the viewer disappears, and a stale stream closes its window.
+- Health includes tile setup instructions and reports freeform fallback. Android 13+ can show the system add-tile prompt; older releases show manual Quick Settings instructions.
+- Verification on 2026-10-15: `assembleDebug` and `testDebugUnitTest` passed. The debug APK installed over USB on the OnePlus. The phone was dozing and the Pad was not attached, so live UI, pairing, QS tile, mirroring, clipboard, and tablet tests were not completed; no wake/lock command was sent.
+
 ### Brainstormed feature status
 
 “Implemented” below means the relevant feature exists in this checkout; it does not guarantee identical behavior on every Android/OEM version. “Partial” means a useful core or prerequisite exists, while the complete idea is still outstanding.
@@ -217,12 +226,12 @@ This collaboration has covered both the existing transport/reliability work in t
 |---|---|---|
 | Connection | Wi-Fi first; Wi-Fi Direct, hotspot, and Bluetooth fallbacks; manual/automatic links; active link display; latency ping/test; Companion support; Tailscale addresses; Travel-mode large-transfer guard. | NFC/QR pairing flow; automatic away-from-home VPN setup; richer travel automation and route testing across every transport in one guided run. |
 | Clipboard | Background text sync both ways; text history; pinning; snippets; sync toggle; pause for one hour; sensitive/duplicate filtering. | Image/file history, per-app rules, quick tile, undo-send, smart paste, URL cleanup/plain-text mode controls, shortcuts, auto-clear, typing paste, OTP workflow. |
-| Mirroring/control | Consent-based screen mirror, touch/swipes, back/home/recent, keyboard entry, optional phone audio, screenshot, volume, app launch, ring, wake/lock, Shizuku screen power/rotation. | scrcpy-class low-latency video, webcam/camera remote, tablet-to-phone mirroring, voice input, polished phone-app launcher and hardware key/volume routing. |
+| Mirroring/control | Consent-based screen mirror; floating/resizable Cast window with optional Shizuku freeform launch; touch/swipes/scroll, back/home/recent, keyboard entry, optional phone audio, screenshot, volume, app launch, ring, wake/lock, Shizuku screen power/rotation. | scrcpy-class low-latency video, webcam/camera remote, voice input, polished phone-app launcher and hardware key/volume routing. |
 | Sharing/files | Android share sheet, links/text/files, transfer state/history, URL queue, SFTP where enabled. | “Send to Pad” naming/flows beyond current share target, drag-and-drop, shared folder, automatic screenshots/photos, file browser polish, resumable transfer UX, image shrinking, one-time shares, scan-to-PDF/OCR, nightly backup, shared notepad. |
 | Notifications/calls/messages | Existing notification/SMS/telephony plugins; new notification inbox, All/Digest, quick/custom reply, dismiss. | Rich app snooze and priority people, digest scheduling, deduped call vibration/video pause policy, complete SMS/call dashboard and call-on-phone flow. |
 | Handoff/sync | Existing media remote; device battery/connection state and scene application. | Continue page/video/music handoff, shared dark mode/brightness/night light/wallpaper, Wi-Fi passwords, map destinations, shared timers/reminders, cross-device search. |
-| Scenes/automation | Work/Movie/Sleep/Travel scene actions; daily Sleep alarm; nearby local-tablet Work rule; widgets/quick settings groundwork only where provided by upstream. | Full place/time/proximity rule builder, shared focus synchronization polish, dedicated widgets/tiles/bubble/desk automation, shake/volume/NFC/edge-drop shortcuts. |
-| Shizuku | Setup guide, authorization checks, background clipboard/hotspot/display helpers, health diagnostics. | Reboot auto-start reliability on all OEMs, broad remote Wi-Fi/Bluetooth/airplane controls, APK installer, quick-command editor, Shizuku live log viewer. |
+| Scenes/automation | Work/Movie/Sleep/Travel scene actions; daily Sleep alarm; nearby local-tablet Work rule; Fresh connection and Cast Quick Settings tiles; widgets/quick settings groundwork only where provided by upstream. | Full place/time/proximity rule builder, shared focus synchronization polish, dedicated widgets/bubble/desk automation, shake/volume/NFC/edge-drop shortcuts. |
+| Shizuku | Setup guide, authorization checks, background clipboard/hotspot/display helpers, health diagnostics, freeform Cast window launch. | Reboot auto-start reliability on all OEMs, broad remote Wi-Fi/Bluetooth/airplane controls, APK installer, quick-command editor, Shizuku live log viewer. |
 | Find/protect/health | Ring, battery, last connection time, mutual pairing approval, connection log, health checks. | GPS last-seen location, battery sharing beyond current status, near-device unlock, fingerprint app lock, storage/duplicate-cleanup view, weekly summary. |
 | Polish | New-device and Shizuku guidance, UI refresh, light/dark mockups, feature icons, accessibility-dependent interactions. | Settings backup/restore, comprehensive accessibility audit, user accent/sound/haptic editor, remaining planned onboarding and polish. |
 
@@ -253,7 +262,7 @@ The UI was opened on attached phone/tablet devices during the implementation, in
 - Several controls need a current paired peer, matching Ecosystem protocol support, and Android grants on one or both devices.
 - Android and OEM background policies can interrupt keep-alive behavior even when the app's health screen gives the right setup guidance.
 - Many brainstorming items in the table are not implemented. This document marks those as planned/partial rather than implying they are available.
-- The checkout contains local changes and new assets from the ongoing implementation. This work has not been represented as a clean committed release; inspect `git status` before making a commit or packaging a release.
+- The `screensharing/` directory may contain local user work; do not include it in feature commits unless explicitly requested.
 - The legacy `fastlane/Appfile` package name should be checked before a store release because it may still identify the upstream KDE Connect package.
 
 ## 11. License and lineage

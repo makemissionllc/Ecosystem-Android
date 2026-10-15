@@ -42,6 +42,8 @@ import org.kde.kdeconnect.plugins.clipboard.ClipboardSyncManager
 import org.kde.kdeconnect.plugins.clipboard.ClipboardSyncSettings
 import org.kde.kdeconnect.plugins.clipboard.ClipboardDiagnostics
 import org.kde.kdeconnect.plugins.notifications.NotificationReceiver
+import org.kde.kdeconnect.plugins.ecosystem.CastTileService
+import org.kde.kdeconnect.plugins.ecosystem.CastWindowSupport
 import org.kde.kdeconnect.ui.compose.KdeTheme
 import org.kde.kdeconnect_tp.R
 import rikka.shizuku.Shizuku
@@ -162,7 +164,8 @@ class BackgroundFeaturesActivity : AppCompatActivity() {
                         },
                         onRefreshDiagnostics = ::refresh,
                         onFreshConnection = { FreshConnectionSupport.request(this) },
-                        onAddFreshConnectionTile = ::requestFreshConnectionTile)
+                        onAddFreshConnectionTile = ::requestFreshConnectionTile,
+                        onAddCastTile = ::requestCastTile)
                 } else if (showingClipboardSync) {
                     ClipboardSyncScreen(
                         settings = clipboardSettings,
@@ -300,6 +303,7 @@ class BackgroundFeaturesActivity : AppCompatActivity() {
             clipboardWatcherActive = ClipboardSyncManager.watcherActive,
             clipboardAutomaticAvailable = ClipboardSyncManager.isAutomaticAvailable(this),
             clipboardDiagnostics = ClipboardDiagnostics.lines(this),
+            castStatus = CastWindowSupport.healthStatus(this),
         )
         disconnectEntries = DisconnectLog.entries(this)
         refreshLab()
@@ -314,6 +318,27 @@ class BackgroundFeaturesActivity : AppCompatActivity() {
                 ComponentName(this, FreshConnectionTileService::class.java),
                 getString(R.string.fresh_connection),
                 Icon.createWithResource(this, R.drawable.ic_action_refresh_24dp),
+                mainExecutor,
+            ) { result ->
+                val message = when (result) {
+                    StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> getString(R.string.qs_tile_added)
+                    StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> getString(R.string.qs_tile_already_added)
+                    else -> getString(R.string.qs_tile_add_not_completed)
+                }
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            }
+        }.onFailure {
+            Toast.makeText(this, getString(R.string.qs_tile_add_not_completed), Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun requestCastTile() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        runCatching {
+            getSystemService(StatusBarManager::class.java).requestAddTileService(
+                ComponentName(this, CastTileService::class.java),
+                getString(R.string.cast_tile),
+                Icon.createWithResource(this, R.drawable.feature_cast),
                 mainExecutor,
             ) { result ->
                 val message = when (result) {

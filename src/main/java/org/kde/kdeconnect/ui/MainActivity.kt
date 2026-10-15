@@ -246,7 +246,12 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
                     (frag is org.kde.kdeconnect.ui.features.FeatureFragment && frag.arguments?.getString("deviceId") == savedDevice)
                 else -> frag is PairingFragment
             }
-            if (fragmentMatchesSelection) return
+            if (fragmentMatchesSelection) {
+                if (intent.getBooleanExtra(EXTRA_OPEN_MIRROR, false) && savedDevice != null) {
+                    openFeatureScreen(savedDevice, org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR)
+                }
+                return
+            }
         }
 
         // Activate the chosen fragment and select the entry in the menu
@@ -259,6 +264,9 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
                 MENU_ENTRY_SHARE -> setContentFragment(ShareFragment.newInstance(savedDevice, shareIntentOrNull(intent)))
                 else -> setContentFragment(PairingFragment())
             }
+        }
+        if (intent.getBooleanExtra(EXTRA_OPEN_MIRROR, false) && savedDevice != null) {
+            openFeatureScreen(savedDevice, org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR)
         }
 
         val missingPermissions = mutableListOf<String>()
@@ -322,6 +330,11 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_MIRROR, false)) {
+            val deviceId = intent.getStringExtra(EXTRA_DEVICE_ID) ?: mCurrentDevice
+            if (deviceId != null) openFeatureScreen(deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR)
+            return
+        }
         if (!isIncomingShareIntent(intent) && !intent.getBooleanExtra(EXTRA_SHOW_SHARE, false)) return
 
         val selectedDevice = intent.getStringExtra(EXTRA_DEVICE_ID)
@@ -537,6 +550,7 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
         const val LOG_TAG = "MainActivity"
 
         const val EXTRA_DEVICE_ID = "deviceId"
+        const val EXTRA_OPEN_MIRROR = "openMirror"
         const val PAIR_REQUEST_STATUS = "pair_req_status"
         const val PAIRING_ACCEPTED = "accepted"
         const val PAIRING_REJECTED = "rejected"

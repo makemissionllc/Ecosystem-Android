@@ -68,6 +68,17 @@ class MirrorService : Service() {
     @Volatile private var audioRecord: android.media.AudioRecord? = null
     private var audioThread: Thread? = null
     private val audioSending = java.util.concurrent.atomic.AtomicBoolean(false)
+    private var castWindowPeerId: String? = null
+    private val castWindowHeartbeatCheck = object : Runnable {
+        override fun run() {
+            val peerId = castWindowPeerId ?: return
+            if (MirrorSession.castWindowHeartbeatExpired(peerId, 18_000)) {
+                stopSelf()
+            } else {
+                handler.postDelayed(this, 5_000)
+            }
+        }
+    }
     @Synchronized internal fun setAudioEnabled(enabled: Boolean) {
         if (enabled && audioEnabled && audioThread?.isAlive == true) return
         val generation = ++audioGeneration
@@ -130,6 +141,8 @@ class MirrorService : Service() {
             configureReader(peer, metrics.widthPixels, metrics.heightPixels)
             MirrorSession.sharingDeviceId = peer.deviceId
             MirrorSession.service = this
+            castWindowPeerId = peer.deviceId
+            handler.postDelayed(castWindowHeartbeatCheck, 18_000)
             display = capture.createVirtualDisplay("Ecosystem", captureWidth, captureHeight, metrics.densityDpi,
                 DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, reader!!.surface, null, handler)
 
@@ -169,6 +182,8 @@ class MirrorService : Service() {
         }, handler)
     }
     override fun onDestroy() {
+        handler.removeCallbacks(castWindowHeartbeatCheck)
+        MirrorSession.clearCastWindowHeartbeat(castWindowPeerId)
         setAudioEnabled(false)
         if (MirrorPower.screenOff) MirrorPower.set(this, true) {}
         reader?.setOnImageAvailableListener(null, null)

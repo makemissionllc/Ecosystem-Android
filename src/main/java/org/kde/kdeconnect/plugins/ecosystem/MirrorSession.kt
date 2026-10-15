@@ -40,14 +40,26 @@ internal object MirrorSession {
     val views = mutableViews.asStateFlow()
     @Volatile var sharingDeviceId: String? = null
     @Volatile var service: MirrorService? = null
+    private val castWindowHeartbeats = mutableMapOf<String, Long>()
     private val sending = AtomicBoolean(false)
     private val requested = mutableSetOf<String>()
     @Synchronized fun expect(deviceId: String) { requested.add(deviceId) }
     @Synchronized fun disconnected(deviceId: String) {
         requested.remove(deviceId)
+        castWindowHeartbeats.remove(deviceId)
         audioPlayers.remove(deviceId)?.stop()
         mutableViews.value = mutableViews.value - deviceId
         if (sharingDeviceId == deviceId) service?.stopSelf()
+    }
+    @Synchronized fun recordCastWindowHeartbeat(deviceId: String) {
+        castWindowHeartbeats[deviceId] = android.os.SystemClock.elapsedRealtime()
+    }
+    @Synchronized fun castWindowHeartbeatExpired(deviceId: String, timeoutMs: Long): Boolean {
+        val lastHeartbeat = castWindowHeartbeats[deviceId] ?: return false
+        return android.os.SystemClock.elapsedRealtime() - lastHeartbeat > timeoutMs
+    }
+    @Synchronized fun clearCastWindowHeartbeat(deviceId: String?) {
+        if (deviceId != null) castWindowHeartbeats.remove(deviceId)
     }
     fun offer(context: Context, deviceId: String): Boolean {
         val peer = KdeConnect.getInstance().getDevice(deviceId) ?: return false

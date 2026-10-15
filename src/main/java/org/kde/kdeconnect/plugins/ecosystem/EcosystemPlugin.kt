@@ -120,6 +120,37 @@ class EcosystemPlugin : Plugin() {
                 }
                 "scene" -> reply["message"] = SceneSupport.applyLocal(context, value)
                 "mirror" -> if (!MirrorSession.offer(context, device.deviceId)) reply["message"] = context.getString(R.string.feature_mirror_notification_permission)
+                "castWindow" -> {
+                    if (value == "heartbeat") {
+                        if (MirrorSession.sharingDeviceId == device.deviceId) {
+                            MirrorSession.recordCastWindowHeartbeat(device.deviceId)
+                        }
+                    } else if (value != MirrorWindowActivity.DIRECTION_RECEIVE) {
+                        reply["message"] = context.getString(R.string.cast_screen_unavailable)
+                    } else {
+                        MirrorSession.expect(device.deviceId)
+                        CastWindowSupport.tryFreeform(context, device.deviceId, MirrorWindowActivity.DIRECTION_RECEIVE) { result ->
+                            if (result.launched) {
+                                CastWindowSupport.rememberFreeform(context)
+                                reply["message"] = context.getString(R.string.cast_freeform_ready)
+                            } else {
+                                CastWindowSupport.rememberFallback(context, result.reason)
+                                val appVisible = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState
+                                    .isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+                                val opened = if (appVisible) {
+                                    runCatching { CastWindowSupport.launchActivity(context, device.deviceId,
+                                        MirrorWindowActivity.DIRECTION_RECEIVE); true }.getOrElse {
+                                        runCatching { CastWindowSupport.launchLegacyMirror(context, device.deviceId); true }.getOrDefault(false)
+                                    }
+                                } else CastWindowSupport.showTapToOpen(context, device.deviceId)
+                                reply["message"] = if (opened) context.getString(R.string.cast_opening)
+                                    else context.getString(R.string.cast_screen_unavailable)
+                            }
+                            device.sendPacket(reply)
+                        }
+                        return
+                    }
+                }
                 "stopMirror" -> MirrorSession.stop(context, device.deviceId)
                 "audio" -> if (MirrorSession.sharingDeviceId == device.deviceId) {
                     MirrorSession.service?.setAudioEnabled(value == "true")

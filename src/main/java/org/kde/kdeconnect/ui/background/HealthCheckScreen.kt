@@ -45,6 +45,7 @@ internal data class HealthCheckState(
     val oemRecentsConfirmed: Boolean = false,
     val companionReady: Boolean = false,
     val clipboardDiagnostics: List<String> = emptyList(),
+    val castStatus: String = "",
 )
 
 @Composable
@@ -67,6 +68,7 @@ internal fun HealthCheckScreen(
     onRefreshDiagnostics: () -> Unit,
     onFreshConnection: () -> Unit,
     onAddFreshConnectionTile: () -> Unit,
+    onAddCastTile: () -> Unit,
 ) {
     val freshConnection by FreshConnectionSupport.status.collectAsState()
     FoundationPage(R.string.health_title, onBack) {
@@ -131,6 +133,16 @@ internal fun HealthCheckScreen(
                 Button(onClick = onAddFreshConnectionTile) { Text(stringResource(R.string.fresh_connection_add_tile)) }
             } else {
                 Text(stringResource(R.string.qs_tile_manual_setup), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        FoundationCard {
+            Text(stringResource(R.string.cast_tile), style = MaterialTheme.typography.titleLarge)
+            Text(state.castStatus.ifBlank { stringResource(R.string.cast_setup_hint) }, style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.cast_setup_hint), style = MaterialTheme.typography.bodySmall)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                Button(onClick = onAddCastTile) { Text(stringResource(R.string.cast_tile_setup)) }
+            } else {
+                Text(stringResource(R.string.cast_tile_manual_setup), style = MaterialTheme.typography.bodySmall)
             }
         }
         FoundationCard {
