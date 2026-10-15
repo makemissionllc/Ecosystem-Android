@@ -38,6 +38,7 @@ import androidx.core.net.toUri
 import org.kde.kdeconnect.KdeConnect
 import org.kde.kdeconnect.plugins.clipboard.ClipboardSyncManager
 import org.kde.kdeconnect.plugins.clipboard.ClipboardSyncSettings
+import org.kde.kdeconnect.plugins.clipboard.ClipboardDiagnostics
 import org.kde.kdeconnect.plugins.notifications.NotificationReceiver
 import org.kde.kdeconnect.ui.compose.KdeTheme
 import org.kde.kdeconnect_tp.R
@@ -156,7 +157,8 @@ class BackgroundFeaturesActivity : AppCompatActivity() {
                         onConfirmOem = { key, checked ->
                             getSharedPreferences(PREFERENCES, MODE_PRIVATE).edit { putBoolean(key, checked) }
                             refresh()
-                        })
+                        },
+                        onRefreshDiagnostics = ::refresh)
                 } else if (showingClipboardSync) {
                     ClipboardSyncScreen(
                         settings = clipboardSettings,
@@ -293,6 +295,7 @@ class BackgroundFeaturesActivity : AppCompatActivity() {
             clipboardSync = ClipboardSyncManager.settings(this),
             clipboardWatcherActive = ClipboardSyncManager.watcherActive,
             clipboardAutomaticAvailable = ClipboardSyncManager.isAutomaticAvailable(this),
+            clipboardDiagnostics = ClipboardDiagnostics.lines(this),
         )
         disconnectEntries = DisconnectLog.entries(this)
         refreshLab()

@@ -40,6 +40,8 @@ import org.kde.kdeconnect.helpers.TrustedDevices
 import org.kde.kdeconnect.plugins.Plugin
 import org.kde.kdeconnect.plugins.Plugin.Companion.getPluginKey
 import org.kde.kdeconnect.plugins.PluginFactory
+import org.kde.kdeconnect.plugins.clipboard.ClipboardPlugin
+import org.kde.kdeconnect.plugins.clipboard.ClipboardSyncManager
 import org.kde.kdeconnect.ui.MainActivity
 import org.kde.kdeconnect_tp.R
 import java.io.IOException
@@ -176,6 +178,15 @@ class Device : PacketReceiver {
 
     val activeTransport: ConnectionTransport?
         get() = preferredLinks().firstOrNull()?.transport
+
+    internal fun clipboardLinkHealthSnapshot(): String {
+        val now = SystemClock.elapsedRealtime()
+        val linkState = links.joinToString("+") { link ->
+            val age = link.lastPacketReceivedAt.takeIf { it > 0L }?.let { "${(now - it).coerceAtLeast(0)}ms" } ?: "never"
+            "${link.transport.name}:rxAge=$age"
+        }.ifBlank { "none" }
+        return "$deviceId:reachable=$isReachable:links=$linkState"
+    }
 
     val name: String
         get() = deviceInfo.name
@@ -453,6 +464,7 @@ class Device : PacketReceiver {
 
     override fun onPacketReceived(np: NetworkPacket) {
         countReceived(deviceId, np.type)
+        ClipboardSyncManager.recordPacketArrival(np.type, np.getString(ClipboardPlugin.ECOSYSTEM_CLIPBOARD_ID))
 
         if (NetworkPacket.PACKET_TYPE_PAIR == np.type) {
             Log.i("KDE/Device", "Pair packet")
@@ -477,6 +489,11 @@ class Device : PacketReceiver {
 
     private fun notifyPluginPacketReceived(np: NetworkPacket) {
         val targetPlugins = pluginsByIncomingInterface[np.type] ?: emptyList()
+        ClipboardSyncManager.recordPacketDispatch(
+            np.type,
+            np.getString(ClipboardPlugin.ECOSYSTEM_CLIPBOARD_ID),
+            targetPlugins.count { it in loadedPlugins },
+        )
         if (targetPlugins.isEmpty()) {
             Log.w("Device", "Ignoring packet with type ${np.type} because no plugin can handle it")
 
@@ -631,6 +648,13 @@ class Device : PacketReceiver {
                 "No device link (of ${links.size} available) could send the packet. Packet ${np.type} to ${deviceInfo.name} lost!"
             )
         }
+
+        ClipboardSyncManager.recordTransportSend(
+            np.type,
+            np.getString(ClipboardPlugin.ECOSYSTEM_CLIPBOARD_ID),
+            selectedLink?.transport?.name,
+            success,
+        )
 
         return success
     }

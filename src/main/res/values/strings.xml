@@ -813,6 +813,10 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
     <string name="health_clipboard_off">Automatic clipboard sync is off. Manual clipboard sending remains available.</string>
     <string name="health_clipboard_running">Automatic clipboard sync is ready</string>
     <string name="health_clipboard_manual">Automatic sync is unavailable; manual sending remains available</string>
+    <string name="health_clipboard_diagnostics_title">Clipboard receive diagnostics</string>
+    <string name="health_clipboard_diagnostics_summary">Last 200 content-free events, including clipboard item IDs, link health, Shizuku state, filtering, writes, and acknowledgements. Refresh this view after a copy fails. Clipboard contents are not recorded.</string>
+    <string name="health_clipboard_diagnostics_refresh">Refresh diagnostics</string>
+    <string name="health_clipboard_diagnostics_empty">No clipboard diagnostic events yet.</string>
     <string name="health_hyperos">HyperOS</string>
     <string name="health_oxygenos">OxygenOS</string>
     <string name="health_oem_generic">manufacturer settings</string>

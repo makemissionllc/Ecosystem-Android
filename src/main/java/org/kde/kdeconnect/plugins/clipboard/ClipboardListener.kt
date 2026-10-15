@@ -87,18 +87,29 @@ class ClipboardListener {
     }
 
     fun setText(text: String?, remoteDevice: Boolean) {
+        val diagnosticContext = ClipboardDiagnostics.currentWriteContext()
+        val diagnosticId = diagnosticContext?.first
+        val diagnosticLink = diagnosticContext?.second
         updateTimestamp = System.currentTimeMillis()
         currentContent = text
         currentContentType = ClipboardContentType.Text
         val applyClip = Runnable {
             if (this::cm.isInitialized) {
-                val clip = ClipData.newPlainText(null, text)
-                if (remoteDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    clip.description.extras = PersistableBundle().apply {
-                        putBoolean(ClipDescription.EXTRA_IS_REMOTE_DEVICE, true)
+                try {
+                    val clip = ClipData.newPlainText(null, text)
+                    if (remoteDevice && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        clip.description.extras = PersistableBundle().apply {
+                            putBoolean(ClipDescription.EXTRA_IS_REMOTE_DEVICE, true)
+                        }
                     }
+                    cm.setPrimaryClip(clip)
+                    if (diagnosticId != null) ClipboardDiagnostics.record(context, diagnosticId, diagnosticLink, "system_clipboard_write", "set_primary_clip_returned")
+                } catch (e: Exception) {
+                    if (diagnosticId != null) ClipboardDiagnostics.record(context, diagnosticId, diagnosticLink, "system_clipboard_write", "exception_${e.javaClass.simpleName}")
+                    throw e
                 }
-                cm.setPrimaryClip(clip)
+            } else if (diagnosticId != null) {
+                ClipboardDiagnostics.record(context, diagnosticId, diagnosticLink, "system_clipboard_write", "skipped_clipboard_manager_uninitialized")
             }
         }
         if (Looper.myLooper() == Looper.getMainLooper()) applyClip.run()

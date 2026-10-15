@@ -49,8 +49,14 @@ class ClipboardPlugin : Plugin() {
                 if (accepted && id.isNotBlank()) {
                     val ack = NetworkPacket(PACKET_TYPE_CLIPBOARD_ACK)
                     ack[ECOSYSTEM_CLIPBOARD_ID] = id
-                    device.sendPacket(ack)
+                    ClipboardSyncManager.recordAckResult(id, "enqueued")
+                    device.sendPacket(ack, object : org.kde.kdeconnect.Device.SendPacketStatusCallback() {
+                        override fun onSuccess() = ClipboardSyncManager.recordAckResult(id, "send_success")
+                        override fun onFailure(e: Throwable) = ClipboardSyncManager.recordAckResult(id, "send_failure_${e.javaClass.simpleName}")
+                    })
                     ClipboardSyncManager.recordClipboardDelay(np.getLong(ECOSYSTEM_CLIPBOARD_SENT_AT, 0L))
+                } else if (!accepted) {
+                    ClipboardSyncManager.recordPluginResult(id, "clipboard_ack", "not_sent_apply_incoming_rejected")
                 }
                 return true
             }
@@ -62,13 +68,17 @@ class ClipboardPlugin : Plugin() {
                 val packetTime = np.getLong("timestamp")
                 // If the packetTime is 0, it means the timestamp is unknown (so do nothing).
                 if (packetTime == 0L || packetTime < ClipboardListener.instance(context).updateTimestamp) {
+                    ClipboardSyncManager.recordPluginResult(np.getString(ECOSYSTEM_CLIPBOARD_ID), "clipboard_connect", "drop_unknown_or_stale_timestamp")
                     return false
                 }
                 if ("content" in np) { // change clipboard if content is in NetworkPacket
-                    ClipboardSyncManager.applyIncoming(
+                    val accepted = ClipboardSyncManager.applyIncoming(
                         context, content, np.getString(ECOSYSTEM_CLIPBOARD_ID), device.name,
                         np.getBoolean(ECOSYSTEM_CLIPBOARD_SENSITIVE, false),
                     )
+                    ClipboardSyncManager.recordPluginResult(np.getString(ECOSYSTEM_CLIPBOARD_ID), "clipboard_connect", "content_apply_accepted_$accepted")
+                } else {
+                    ClipboardSyncManager.recordPluginResult(np.getString(ECOSYSTEM_CLIPBOARD_ID), "clipboard_connect", "no_content")
                 }
                 return true
             }
@@ -207,7 +217,7 @@ class ClipboardPlugin : Plugin() {
          * "content": "password"
          * }
          */
-        private const val PACKET_TYPE_CLIPBOARD_CONNECT = "kdeconnect.clipboard.connect"
+        internal const val PACKET_TYPE_CLIPBOARD_CONNECT = "kdeconnect.clipboard.connect"
 
         fun canSyncAutomatically(context: Context): Boolean {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {

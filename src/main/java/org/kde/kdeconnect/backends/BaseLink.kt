@@ -7,6 +7,7 @@
 package org.kde.kdeconnect.backends
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.annotation.WorkerThread
 import org.kde.kdeconnect.Device
 import org.kde.kdeconnect.DeviceInfo
@@ -17,6 +18,10 @@ abstract class BaseLink(
     protected val context: Context,
     val linkProvider: BaseLinkProvider
 ) {
+    @Volatile
+    var lastPacketReceivedAt: Long = 0L
+        private set
+
     open val transport: ConnectionTransport
         get() = linkProvider.transport
 
@@ -44,8 +49,15 @@ abstract class BaseLink(
 
     // Should be called from a background thread listening for packets
     fun packetReceived(np: NetworkPacket) {
-        for (pr in receivers) {
-            pr.onPacketReceived(np)
+        lastPacketReceivedAt = SystemClock.elapsedRealtime()
+        val previous = receivingLink.get()
+        receivingLink.set(this)
+        try {
+            for (pr in receivers) {
+                pr.onPacketReceived(np)
+            }
+        } finally {
+            if (previous == null) receivingLink.remove() else receivingLink.set(previous)
         }
     }
 
@@ -57,4 +69,11 @@ abstract class BaseLink(
     @WorkerThread
     @Throws(IOException::class)
     abstract fun sendPacket(np: NetworkPacket, callback: Device.SendPacketStatusCallback, sendPayloadFromSameThread: Boolean): Boolean
+
+    companion object {
+        private val receivingLink = ThreadLocal<BaseLink>()
+
+        /** The link whose receive callback is currently dispatching on this thread, if any. */
+        fun currentReceivingLink(): BaseLink? = receivingLink.get()
+    }
 }

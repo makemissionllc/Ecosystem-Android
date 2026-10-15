@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Switch
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
 import java.text.DateFormat
@@ -41,6 +42,7 @@ internal data class HealthCheckState(
     val oemBatteryConfirmed: Boolean = false,
     val oemRecentsConfirmed: Boolean = false,
     val companionReady: Boolean = false,
+    val clipboardDiagnostics: List<String> = emptyList(),
 )
 
 @Composable
@@ -60,6 +62,7 @@ internal fun HealthCheckScreen(
     onOpenNotificationSettings: () -> Unit,
     onOpenCompanion: () -> Unit,
     onConfirmOem: (String, Boolean) -> Unit,
+    onRefreshDiagnostics: () -> Unit,
 ) {
     FoundationPage(R.string.health_title, onBack) {
         Text(stringResource(R.string.health_summary), style = MaterialTheme.typography.bodyLarge)
@@ -138,6 +141,18 @@ internal fun HealthCheckScreen(
                 }
             }
             TextButton(onClick = onOpenClipboardSettings) { Text(stringResource(R.string.clipboard_sync_title)) }
+        }
+        FoundationCard {
+            Text(stringResource(R.string.health_clipboard_diagnostics_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.health_clipboard_diagnostics_summary), style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = onRefreshDiagnostics) { Text(stringResource(R.string.health_clipboard_diagnostics_refresh)) }
+            Text(
+                text = state.clipboardDiagnostics.takeLast(200).joinToString("\n").ifBlank {
+                    stringResource(R.string.health_clipboard_diagnostics_empty)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+            )
         }
         FoundationCard {
             Text(stringResource(R.string.keep_alive_oem_title, state.oemName), style = MaterialTheme.typography.titleLarge)
