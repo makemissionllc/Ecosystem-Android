@@ -62,6 +62,7 @@ class KdeConnect : Application() {
         PluginFactory.initPluginInfo(this)
         NotificationHelper.initializeChannels(this)
         org.kde.kdeconnect.ui.background.ShizukuSupport.initialize(this)
+        org.kde.kdeconnect.ui.background.FreshConnectionSupport.initialize(this)
         ConnectionLab.initialize(this)
         org.kde.kdeconnect.plugins.clipboard.ClipboardSyncManager.initialize(this)
         org.kde.kdeconnect.ui.background.KeepAliveSupport.initialize(this)

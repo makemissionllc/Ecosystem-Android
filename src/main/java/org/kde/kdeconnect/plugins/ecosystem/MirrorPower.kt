@@ -28,6 +28,26 @@ internal object MirrorPower {
         override fun onNullBinding(name: ComponentName?) = onServiceDisconnected(name)
     }
     fun available(context: Context) = ShizukuSupport.state(context).authorized
+
+    fun restartUserServiceConnection(context: Context) {
+        handler.post {
+            if (binding && ShizukuSupport.state(context).running) {
+                runCatching {
+                    Shizuku.unbindUserService(
+                        Shizuku.UserServiceArgs(ComponentName(context, DisplayPowerUserService::class.java))
+                            .tag("ecosystem_display_power").version(2).daemon(false).processNameSuffix("display_power"),
+                        connection,
+                        true,
+                    )
+                }
+            }
+            remote = null
+            binding = false
+            pending?.invoke(null)
+            pending = null
+            if (available(context)) withController(context) { }
+        }
+    }
     fun set(context: Context, on: Boolean, callback: (Boolean) -> Unit) {
         withController(context) { controller -> ThreadHelper.execute {
             val success = runCatching { controller?.setScreenOn(on) == true }.getOrDefault(false)

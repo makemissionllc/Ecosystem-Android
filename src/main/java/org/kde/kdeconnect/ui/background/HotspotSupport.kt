@@ -79,6 +79,18 @@ internal object HotspotSupport {
         reconcile()
     }
 
+    fun restartUserServiceConnection() {
+        if (!initialized) return
+        handler.post {
+            if (bound && ShizukuSupport.state(appContext).running) {
+                runCatching { Shizuku.unbindUserService(args, connection, true) }
+            }
+            service = null
+            bound = false
+            handler.postDelayed(::reconcile, 500)
+        }
+    }
+
     fun onNetworkAvailable(network: Network): Boolean {
         val target = pendingTarget ?: return false
         if (isHost(target)) return false

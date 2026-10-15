@@ -81,6 +81,10 @@ internal object ClipboardSyncPreferences {
     fun rememberLocalHash(context: Context, hash: String) {
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit { putString(KEY_LAST_LOCAL_HASH, hash) }
     }
+
+    fun clearLastLocalHash(context: Context) {
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit { remove(KEY_LAST_LOCAL_HASH) }
+    }
 }
 
 /** Coordinates the privileged watcher, loop protection, and delivery over KDE Connect's paired transport. */
@@ -101,6 +105,10 @@ internal object ClipboardSyncManager {
     private val outboxLock = Any()
     private val inFlight = mutableMapOf<String, Long>()
     @Volatile private var retryScheduled = false
+    private val deliveryRetry = Runnable {
+        retryScheduled = false
+        ThreadHelper.execute { flushPendingClipboard() }
+    }
     private lateinit var appContext: Context
     private var initialized = false
     private var isBound = false
@@ -223,6 +231,30 @@ internal object ClipboardSyncManager {
             updateWatcherState(false)
             diagnostic("service", "shizuku_user_service_bind", "result=exception_${e.javaClass.simpleName}")
             Log.w(TAG, "Could not bind Shizuku clipboard watcher", e)
+        }
+    }
+
+    /** Clears only transient delivery and dedupe state; clipboard history and sync settings survive. */
+    fun resetForFreshConnection() {
+        if (!initialized) return
+        mainHandler.post {
+            synchronized(remoteHashes) { remoteHashes.clear() }
+            synchronized(inFlight) { inFlight.clear() }
+            synchronized(outboxLock) {
+                appContext.getSharedPreferences("ecosystem_clipboard_sync", Context.MODE_PRIVATE).edit {
+                    putString("pending_clipboard_delivery", "[]")
+                    putString("pending_incoming_clipboard", "[]")
+                    putString("seen_clipboard_delivery_ids", "[]")
+                }
+                ClipboardSyncPreferences.clearLastLocalHash(appContext)
+            }
+            mainHandler.removeCallbacks(deliveryRetry)
+            retryScheduled = false
+            diagnostic("service", "fresh_connection", "result=transient_clipboard_state_cleared")
+            stopWatcher()
+            if (ClipboardSyncPreferences.read(appContext).enabled && ShizukuSupport.state(appContext).authorized) {
+                mainHandler.postDelayed(::refresh, 500)
+            }
         }
     }
 
@@ -444,10 +476,7 @@ internal object ClipboardSyncManager {
     private fun scheduleDeliveryRetry() {
         if (retryScheduled) return
         retryScheduled = true
-        mainHandler.postDelayed({
-            retryScheduled = false
-            ThreadHelper.execute { flushPendingClipboard() }
-        }, DELIVERY_RETRY_MS)
+        mainHandler.postDelayed(deliveryRetry, DELIVERY_RETRY_MS)
     }
 
     private fun beginIncomingDelivery(context: Context, id: String, text: String, sourceName: String): Boolean = synchronized(outboxLock) {

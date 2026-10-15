@@ -20,12 +20,16 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import org.kde.kdeconnect.ui.background.ConnectionRecovery
 import org.kde.kdeconnect.ui.background.HotspotSupport
 import org.kde.kdeconnect.ui.background.DisconnectLog
 import org.kde.kdeconnect.ui.background.DisconnectCause
+import org.kde.kdeconnect.ui.background.FreshConnectionSupport
+import org.kde.kdeconnect.ui.background.KeepAliveSupport
 import android.util.Log
 import androidx.annotation.MainThread
 import androidx.core.app.NotificationCompat
@@ -56,6 +60,8 @@ class BackgroundService : Service() {
     private lateinit var applicationInstance: KdeConnect
 
     private val linkProviders = mutableListOf<BaseLinkProvider>()
+    private val resetHandler = Handler(Looper.getMainLooper())
+    @Volatile private var freshConnectionRunning = false
     private val screenReceiver = KdeConnectBroadcastReceiver()
     private val availableNetworks = mutableSetOf<Network>()
     private val wifiNetworks = mutableSetOf<Network>()
@@ -279,6 +285,10 @@ class BackgroundService : Service() {
         connectivityManager?.let { manager -> runCatching { manager.unregisterNetworkCallback(networkCallback) } }
         connectivityManager = null
         if (instance === this) instance = null
+        if (freshConnectionRunning || FreshConnectionSupport.isResetting(this)) {
+            freshConnectionRunning = false
+            FreshConnectionSupport.finish(this, false, getString(R.string.fresh_connection_interrupted))
+        }
         for (linkProvider in linkProviders) {
             linkProvider.onStop()
         }
@@ -294,11 +304,52 @@ class BackgroundService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        if (intent != null && intent.getBooleanExtra("refresh", false)) {
+        if (intent?.action == ACTION_FRESH_CONNECTION) {
+            performFreshConnectionReset()
+        } else if (intent != null && intent.getBooleanExtra("refresh", false)) {
             onNetworkChange(null)
             recovery.requestImmediate()
         }
         return START_STICKY
+    }
+
+    private fun performFreshConnectionReset() {
+        if (freshConnectionRunning || !FreshConnectionSupport.isResetting(this)) return
+        freshConnectionRunning = true
+        val pairedIds = applicationInstance.devices.values.filter { it.isPaired }.map { it.deviceId }
+        recovery.resetForFreshConnection()
+        org.kde.kdeconnect.plugins.clipboard.ClipboardSyncManager.resetForFreshConnection()
+        HotspotSupport.restartUserServiceConnection()
+        KeepAliveSupport.restartUserServiceConnection()
+        org.kde.kdeconnect.plugins.ecosystem.MirrorPower.restartUserServiceConnection(this)
+
+        applicationInstance.devices.values.forEach { it.disconnect() }
+        linkProviders.forEach { it.onStop() }
+        resetHandler.postDelayed({
+            if (!freshConnectionRunning) return@postDelayed
+            linkProviders.filterIsInstance<LanLinkProvider>().forEach { it.clearDiscoveryCaches() }
+            linkProviders.forEach { it.onStart() }
+            linkProviders.filterIsInstance<LanLinkProvider>().forEach { it.forceRediscovery() }
+            linkProviders.filterIsInstance<WifiDirectLinkProvider>().forEach { it.onNetworkChange(null) }
+            recovery.requestImmediate()
+            waitForFreshConnection(pairedIds, 0)
+        }, 500)
+    }
+
+    private fun waitForFreshConnection(pairedIds: List<String>, elapsedMs: Long) {
+        if (!freshConnectionRunning) return
+        val connected = pairedIds.mapNotNull(applicationInstance::getDevice).firstOrNull { it.isPaired && it.isReachable }
+        if (connected != null) {
+            freshConnectionRunning = false
+            FreshConnectionSupport.finish(this, true, connected.name)
+        } else if (pairedIds.isEmpty() || elapsedMs >= FRESH_CONNECTION_TIMEOUT_MS) {
+            freshConnectionRunning = false
+            val reason = if (pairedIds.isEmpty()) getString(R.string.fresh_connection_no_paired_devices)
+                else getString(R.string.fresh_connection_no_device_responded)
+            FreshConnectionSupport.finish(this, false, reason)
+        } else {
+            resetHandler.postDelayed({ waitForFreshConnection(pairedIds, elapsedMs + FRESH_CONNECTION_POLL_MS) }, FRESH_CONNECTION_POLL_MS)
+        }
     }
 
     private fun promoteToForeground(): Boolean = try {
@@ -316,6 +367,9 @@ class BackgroundService : Service() {
 
     companion object {
         const val LOG_TAG = "KDE/BackgroundService"
+        const val ACTION_FRESH_CONNECTION = "org.kde.kdeconnect.action.FRESH_CONNECTION"
+        private const val FRESH_CONNECTION_TIMEOUT_MS = 20_000L
+        private const val FRESH_CONNECTION_POLL_MS = 500L
 
         const val UPDATE_IMMUTABLE_FLAGS = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         private const val FOREGROUND_NOTIFICATION_ID = 1

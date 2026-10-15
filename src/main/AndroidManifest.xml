@@ -113,6 +113,26 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
         <activity
             android:name="org.kde.kdeconnect.ui.background.BackgroundFeaturesActivity"
             android:exported="false" />
+        <activity
+            android:name="org.kde.kdeconnect.ui.background.EcosystemTilePreferencesActivity"
+            android:exported="true"
+            android:label="@string/health_title">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name="org.kde.kdeconnect.ui.background.FreshConnectionTileService"
+            android:icon="@drawable/ic_action_refresh_24dp"
+            android:exported="true"
+            android:label="@string/fresh_connection"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <activity android:name="org.kde.kdeconnect.plugins.ecosystem.MirrorConsentActivity" android:exported="false" />
         <service android:name="org.kde.kdeconnect.plugins.ecosystem.MirrorService" android:exported="false" android:foregroundServiceType="mediaProjection" />

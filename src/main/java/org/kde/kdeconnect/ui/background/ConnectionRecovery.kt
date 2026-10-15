@@ -68,6 +68,13 @@ internal class ConnectionRecovery(private val context: Context, private val disc
         }
     }
 
+    fun resetForFreshConnection() {
+        handler.post {
+            cancel()
+            delayIndex = 0
+        }
+    }
+
     fun settingsChanged() {
         handler.post { update() }
     }

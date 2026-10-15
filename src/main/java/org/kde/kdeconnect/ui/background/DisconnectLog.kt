@@ -35,6 +35,7 @@ internal enum class DisconnectCause(val text: Int) {
     REBOOT(R.string.disconnect_cause_reboot),
     APP_UPDATE(R.string.disconnect_cause_update),
     SHIZUKU_STOPPED(R.string.disconnect_cause_shizuku),
+    FRESH_CONNECTION(R.string.disconnect_cause_fresh_connection),
 }
 
 internal data class DisconnectLogEntry(
@@ -144,15 +145,16 @@ internal object DisconnectLog {
         connected: Boolean,
         cause: DisconnectCause = DisconnectCause.UNKNOWN,
         component: Boolean = false,
+        reason: String? = null,
     ) {
         val prefs = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
         val entries = entries(context).toMutableList()
         val now = System.currentTimeMillis()
         if (entries.firstOrNull()?.let {
                 it.deviceName == deviceName && it.connected == connected && it.cause == cause &&
-                    it.component == component && now - it.timestamp < 2_000
+                    it.component == component && it.reason == reason && now - it.timestamp < 2_000
             } == true) return
-        entries.add(0, DisconnectLogEntry(now, deviceName, connected, cause, component))
+        entries.add(0, DisconnectLogEntry(now, deviceName, connected, cause, component, reason = reason))
         val json = JSONArray()
         entries.take(MAX_ENTRIES).forEach { json.put(it.toJson()) }
         val connectedDevices = runCatching {

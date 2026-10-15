@@ -19,6 +19,8 @@ import androidx.compose.ui.Alignment
 import java.text.DateFormat
 import java.util.Date
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -63,7 +65,10 @@ internal fun HealthCheckScreen(
     onOpenCompanion: () -> Unit,
     onConfirmOem: (String, Boolean) -> Unit,
     onRefreshDiagnostics: () -> Unit,
+    onFreshConnection: () -> Unit,
+    onAddFreshConnectionTile: () -> Unit,
 ) {
+    val freshConnection by FreshConnectionSupport.status.collectAsState()
     FoundationPage(R.string.health_title, onBack) {
         Text(stringResource(R.string.health_summary), style = MaterialTheme.typography.bodyLarge)
         FoundationCard {
@@ -113,6 +118,19 @@ internal fun HealthCheckScreen(
             if (!state.connectedDevice) {
                 Text(stringResource(R.string.health_connection_next), style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = onOpenConnection) { Text(stringResource(R.string.health_open_devices)) }
+            }
+        }
+        FoundationCard {
+            Text(stringResource(R.string.fresh_connection), style = MaterialTheme.typography.titleLarge)
+            Text(freshConnection.message.ifBlank { stringResource(R.string.fresh_connection_health_hint) },
+                style = MaterialTheme.typography.bodyMedium)
+            Button(onClick = onFreshConnection, enabled = !freshConnection.resetting) {
+                Text(stringResource(if (freshConnection.resetting) R.string.fresh_connection_resetting else R.string.fresh_connection))
+            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                Button(onClick = onAddFreshConnectionTile) { Text(stringResource(R.string.fresh_connection_add_tile)) }
+            } else {
+                Text(stringResource(R.string.qs_tile_manual_setup), style = MaterialTheme.typography.bodySmall)
             }
         }
         FoundationCard {

@@ -6,6 +6,7 @@
 package org.kde.kdeconnect.ui.background
 
 import android.Manifest
+import android.app.StatusBarManager
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothDevice
@@ -22,6 +23,7 @@ import org.kde.kdeconnect.BackgroundService
 import org.kde.kdeconnect.ui.SettingsFragment
 import android.content.ComponentName
 import android.content.Intent
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -158,7 +160,9 @@ class BackgroundFeaturesActivity : AppCompatActivity() {
                             getSharedPreferences(PREFERENCES, MODE_PRIVATE).edit { putBoolean(key, checked) }
                             refresh()
                         },
-                        onRefreshDiagnostics = ::refresh)
+                        onRefreshDiagnostics = ::refresh,
+                        onFreshConnection = { FreshConnectionSupport.request(this) },
+                        onAddFreshConnectionTile = ::requestFreshConnectionTile)
                 } else if (showingClipboardSync) {
                     ClipboardSyncScreen(
                         settings = clipboardSettings,
@@ -302,6 +306,27 @@ class BackgroundFeaturesActivity : AppCompatActivity() {
     }
 
     private fun refreshLab() { labEntries = ConnectionLab.rows(this) }
+
+    private fun requestFreshConnectionTile() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        runCatching {
+            getSystemService(StatusBarManager::class.java).requestAddTileService(
+                ComponentName(this, FreshConnectionTileService::class.java),
+                getString(R.string.fresh_connection),
+                Icon.createWithResource(this, R.drawable.ic_action_refresh_24dp),
+                mainExecutor,
+            ) { result ->
+                val message = when (result) {
+                    StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> getString(R.string.qs_tile_added)
+                    StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> getString(R.string.qs_tile_already_added)
+                    else -> getString(R.string.qs_tile_add_not_completed)
+                }
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            }
+        }.onFailure {
+            Toast.makeText(this, getString(R.string.qs_tile_add_not_completed), Toast.LENGTH_LONG).show()
+        }
+    }
 
     private fun exportConnectionLab() {
         val intent = Intent(Intent.ACTION_SEND).apply {

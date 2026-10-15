@@ -117,6 +117,19 @@ internal object KeepAliveSupport {
         }
     }
 
+    fun restartUserServiceConnection() {
+        if (!initialized) return
+        handler.post {
+            if (bound && ShizukuSupport.state(appContext).running) {
+                runCatching { Shizuku.unbindUserService(args, connection, true) }
+            }
+            service = null
+            bound = false
+            busy = false
+            if (ShizukuSupport.state(appContext).authorized) refresh()
+        }
+    }
+
     private fun parse(json: String): KeepAliveReport = runCatching {
         val value = JSONObject(json)
         KeepAliveReport(value.optBoolean("batteryExempt"), value.optBoolean("backgroundAllowed"),

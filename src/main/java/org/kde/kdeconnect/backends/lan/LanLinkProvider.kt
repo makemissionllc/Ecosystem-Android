@@ -79,6 +79,18 @@ class LanLinkProvider(private val context: Context) : BaseLinkProvider() {
         }
     }
 
+    /** Discard stale discovery rate limits before a user-requested rediscovery. */
+    fun clearDiscoveryCaches() {
+        lastConnectionTimeByDeviceId.clear()
+        lastConnectionTimeByIp.clear()
+        lastBroadcast = 0
+    }
+
+    fun forceRediscovery() {
+        lastBroadcast = 0
+        onNetworkChange(null)
+    }
+
     @Volatile
     private var tcpServer: ServerSocket? = null
     @Volatile

@@ -46,6 +46,7 @@ import org.kde.kdeconnect.plugins.runcommand.RunCommandPlugin
 import org.kde.kdeconnect.plugins.share.SharePlugin
 import org.kde.kdeconnect.plugins.battery.BatteryPlugin
 import org.kde.kdeconnect.ui.compose.KdeTheme
+import org.kde.kdeconnect.ui.background.FreshConnectionSupport
 import org.kde.kdeconnect.ui.compose.screen.device.DeviceErrorScreen
 import org.kde.kdeconnect.ui.compose.screen.device.DevicePairingScreen
 import org.kde.kdeconnect.ui.compose.screen.device.DeviceViewModel
@@ -137,6 +138,10 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                 (mActivity as? MainActivity)?.openFeatureScreen(deviceId, destination)
                 true
             }
+        }
+        menu.add(R.string.fresh_connection).setOnMenuItemClickListener {
+            FreshConnectionSupport.request(requireContext())
+            true
         }
         if (device.isReachable) {
             menu.add(R.string.feature_touchpad_title).setOnMenuItemClickListener {
