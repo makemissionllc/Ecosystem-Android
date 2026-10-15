@@ -6,6 +6,8 @@ The UI uses the mockups' neutral light/dark surfaces, pill controls, outline ico
 
 Settings keep the mockups' grouped-row presentation while allowing the whole toggle row to respond to a tap. Supporting text wraps at its normal size when space is constrained or system text is enlarged. The tour includes a direct Settings step so people can try the row behavior.
 
+Unpaired devices use the prominent pill-shaped Pair action shown in the discovery mockups. New and changed device rows use brief, keyed list transitions so status changes stay legible without continuous animation.
+
 ## Implemented behavior
 
 - Clipboard: private persistent text history, deduplication, pinned snippets, copy/send/delete, automatic-sync toggle, and a one-hour pause that survives process restarts. Sensitive clips are excluded. Recent history is limited to 100 entries; pinned items are retained.

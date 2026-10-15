@@ -8,6 +8,7 @@ package org.kde.kdeconnect.ui.compose.screen.pairing
 
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -323,17 +325,29 @@ private fun LazyListScope.DeviceSections(
     if (uiState.connected.isEmpty()) {
         item { EmptyPlaceholder() }
     } else {
-        items(uiState.connected, key = { it.id }) { device -> DeviceCard(device, onClick, onFavoriteClick) }
+        items(uiState.connected, key = { it.id }) { device ->
+            DeviceCard(device, onClick, onFavoriteClick, modifier = deviceItemAnimation())
+        }
     }
     if (uiState.available.isNotEmpty()) {
         item { DeviceSectionHeader(stringResource(R.string.category_not_paired_devices)) }
-        items(uiState.available, key = { it.id }) { device -> DeviceCard(device, onClick, onFavoriteClick) }
+        items(uiState.available, key = { it.id }) { device ->
+            DeviceCard(device, onClick, onFavoriteClick, modifier = deviceItemAnimation())
+        }
     }
     if (uiState.remembered.isNotEmpty()) {
         item { DeviceSectionHeader(stringResource(R.string.category_remembered_devices)) }
-        items(uiState.remembered, key = { it.id }) { device -> DeviceCard(device, onClick, onFavoriteClick) }
+        items(uiState.remembered, key = { it.id }) { device ->
+            DeviceCard(device, onClick, onFavoriteClick, modifier = deviceItemAnimation())
+        }
     }
 }
+
+private fun LazyItemScope.deviceItemAnimation(): Modifier = Modifier.animateItem(
+    fadeInSpec = tween(durationMillis = 150),
+    placementSpec = tween(durationMillis = 180),
+    fadeOutSpec = tween(durationMillis = 120),
+)
 
 @Composable
 private fun DeviceSectionHeader(title: String) {
@@ -345,9 +359,14 @@ private fun DeviceSectionHeader(title: String) {
 }
 
 @Composable
-private fun DeviceCard(device: DeviceUiModel, onClick: (String) -> Unit, onFavoriteClick: (String) -> Unit) {
+private fun DeviceCard(
+    device: DeviceUiModel,
+    onClick: (String) -> Unit,
+    onFavoriteClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Card(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 80.dp),
         onClick = { onClick(device.id) },
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -390,7 +409,19 @@ private fun DeviceCard(device: DeviceUiModel, onClick: (String) -> Unit, onFavor
                     color = MaterialTheme.colorScheme.primary
                 )
             } else {
-                Text(text = stringResource(R.string.pair), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Surface(
+                    modifier = Modifier.defaultMinSize(minWidth = 80.dp, minHeight = 48.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    contentColor = MaterialTheme.colorScheme.surface,
+                ) {
+                    Box(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(text = stringResource(R.string.pair), style = MaterialTheme.typography.labelLarge)
+                    }
+                }
             }
             val starScale by animateFloatAsState(
                 targetValue = if (device.isFavorite) 1.12f else 1f,

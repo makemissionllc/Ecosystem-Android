@@ -96,6 +96,7 @@ internal fun WhatsNewDialog(onDismiss: () -> Unit, onStartTour: () -> Unit) {
                 LearningHighlight(R.drawable.feature_cast, R.string.whats_new_cast_title, R.string.whats_new_cast_body)
                 LearningHighlight(R.drawable.feature_wifi, R.string.whats_new_connection_title, R.string.whats_new_connection_body)
                 LearningHighlight(R.drawable.feature_home, R.string.whats_new_favorites_title, R.string.whats_new_favorites_body)
+                LearningHighlight(R.drawable.feature_home, R.string.whats_new_pair_title, R.string.whats_new_pair_body)
                 LearningHighlight(R.drawable.ic_appearance_24, R.string.whats_new_settings_title, R.string.whats_new_settings_body)
                 LearningHighlight(R.drawable.feature_clipboard, R.string.whats_new_everyday_title, R.string.whats_new_everyday_body)
                 LearningHighlight(R.drawable.feature_battery, R.string.whats_new_efficiency_title, R.string.whats_new_efficiency_body)
