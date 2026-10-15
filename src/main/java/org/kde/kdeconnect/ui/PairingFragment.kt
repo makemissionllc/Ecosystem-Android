@@ -29,6 +29,7 @@ import androidx.core.content.edit
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.Observer
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.kde.kdeconnect.BackgroundService.Companion.ForceRefreshConnections
 import org.kde.kdeconnect.BackgroundService.Companion.instance
@@ -48,6 +49,8 @@ import org.kde.kdeconnect_tp.databinding.DevicesListBinding
 class PairingFragment : BaseFragment<DevicesListBinding>() {
 
     private val viewModel by viewModels<PairingViewModel>()
+
+    private val connectivityObserver = Observer<Boolean>(::updateConnectivityInfoHeader)
 
     private var listRefreshCalledThisFrame = false
 
@@ -220,19 +223,6 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
         }
         listRefreshCalledThisFrame = true
 
-        //Check if we're on Wi-Fi/Local network. If we still see a device, don't do anything special
-        val service = instance
-        if (service == null) {
-            updateConnectivityInfoHeader(isConnectedToNonCellularNetwork = true)
-        } else {
-            service.isConnectedToNonCellularNetwork.observe(
-                viewLifecycleOwner,
-                ::updateConnectivityInfoHeader
-            )
-        }
-
-        updatePermissionsHeader()
-
         try {
             val allDevices = KdeConnect.getInstance().devices.values.filter {
                 it.isReachable || it.isPaired
@@ -268,11 +258,28 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
 
     override fun onStart() {
         super.onStart()
+        updatePermissionsHeader()
+        // These environment checks do not depend on the device list. Observe connectivity
+        // once per view lifecycle instead of registering it for every peer-list callback.
+        val service = instance
+        if (service == null) {
+            updateConnectivityInfoHeader(isConnectedToNonCellularNetwork = true)
+        } else {
+            service.isConnectedToNonCellularNetwork.observe(viewLifecycleOwner, connectivityObserver)
+        }
         KdeConnect.getInstance().addDeviceListChangedCallback("PairingFragment") {
             mActivity?.runOnUiThread { this.updateDeviceList() }
         }
         ForceRefreshConnections(requireContext()) // force a network re-discover
         updateDeviceList()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Permission screens can return without restarting the fragment. Refresh these
+        // infrequent values here, while device-list callbacks only update peer content.
+        updatePermissionsHeader()
+        instance?.isConnectedToNonCellularNetwork?.value?.let(::updateConnectivityInfoHeader)
     }
 
     override fun onStop() {

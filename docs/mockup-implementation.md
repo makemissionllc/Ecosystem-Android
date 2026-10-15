@@ -4,6 +4,8 @@ The device dashboard opens clipboard history and notifications from their cards.
 
 The UI uses the mockups' neutral light/dark surfaces, pill controls, outline icons, grouped rows, and two-column action cards. Tablet mirroring keeps the sidebar; Desk mode fills the window. Phone notifications and scenes keep the bottom navigation; the other detail screens hide it. Android system bars and accessibility font scaling still follow device settings.
 
+Settings keep the mockups' grouped-row presentation while allowing the whole toggle row to respond to a tap. Supporting text wraps at its normal size when space is constrained or system text is enlarged. The tour includes a direct Settings step so people can try the row behavior.
+
 ## Implemented behavior
 
 - Clipboard: private persistent text history, deduplication, pinned snippets, copy/send/delete, automatic-sync toggle, and a one-hour pause that survives process restarts. Sensitive clips are excluded. Recent history is limited to 100 entries; pinned items are retained.

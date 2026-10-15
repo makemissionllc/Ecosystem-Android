@@ -331,6 +331,12 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
         setContentFragment(ShareFragment.newInstance(deviceId))
     }
 
+    internal fun openSettings() {
+        mCurrentMenuEntry = MENU_ENTRY_SETTINGS
+        mNavigationView.setCheckedItem(MENU_ENTRY_SETTINGS)
+        setContentFragment(EcosystemSettingsFragment())
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

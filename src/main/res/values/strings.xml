@@ -469,11 +469,13 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
     <string name="whats_new_everyday_title">Everyday tools, in one place</string>
     <string name="whats_new_everyday_body">Explore clipboard history, notification replies, sharing, media controls, touchpad, scenes, Desk mode, remote control and screen mirroring.</string>
     <string name="whats_new_efficiency_title">Lighter feature screens</string>
-    <string name="whats_new_efficiency_body">Time-sensitive labels refresh only as often as needed, hidden screens pause background updates, and idle connection graphics no longer animate continuously.</string>
+    <string name="whats_new_efficiency_body">Time-sensitive labels refresh only as often as needed, hidden screens pause background updates, discovery avoids repeating permission and connection checks for every device update, and idle graphics no longer animate continuously.</string>
     <string name="whats_new_navigation_title">Pick up without a reload</string>
-    <string name="whats_new_navigation_body">Updates keep your dashboard in place, and choosing the screen you already have open no longer reloads it.</string>
+    <string name="whats_new_navigation_body">Updates keep your dashboard in place, choosing the screen you already have open no longer reloads it, and the selected phone tab eases between its active and inactive states.</string>
     <string name="whats_new_favorites_title">Keep your favorite devices close</string>
     <string name="whats_new_favorites_body">Star a device in its list or device menu to keep it at the top of the device list and navigation drawer. Favorites are saved on this device.</string>
+    <string name="whats_new_settings_title">Settings are easier to use</string>
+    <string name="whats_new_settings_body">Tap anywhere on a setting row to change it. Longer descriptions wrap at a readable size on narrow screens and with larger text.</string>
     <string name="whats_new_tour_hint">Open the interactive app tour to try each area. Some actions need a paired device or Android permission.</string>
     <string name="tour_title">Explore Ecosystem</string>
     <string name="tour_counter">Step %1$d of %2$d</string>
@@ -483,7 +485,7 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
     <string name="tour_next">Next</string>
     <string name="tour_finish">Done</string>
     <string name="tour_devices_title">Pair your devices</string>
-    <string name="tour_devices_body">Nearby Ecosystem devices appear here. Pair once to create a trusted link, then star devices in the list or device menu to keep them at the top of the list and navigation drawer. If discovery cannot find a device, add its IP address from the device menu.</string>
+    <string name="tour_devices_body">Nearby Ecosystem devices appear here. Pair once to create a trusted link, then star devices in the list or device menu to keep them at the top of the list and navigation drawer. The list updates as peers change without repeatedly checking permissions and connectivity. If discovery cannot find a device, add its IP address from the device menu.</string>
     <string name="tour_dashboard_title">Your device dashboard</string>
     <string name="tour_dashboard_body">See connection status, open everyday actions, and enable the plugins you use. Live updates keep your place, and Continue where you left off takes you back to your latest tool.</string>
     <string name="tour_share_title">Share in a couple of taps</string>
@@ -500,6 +502,8 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
     <string name="tour_control_body">Ring a device, check its battery, open apps, lock or wake it, and capture a screenshot. Mirror asks the source device for consent before sharing its screen; Cast can open a floating viewer.</string>
     <string name="tour_scenes_title">Make a scene for the moment</string>
     <string name="tour_scenes_body">Work, Movie, Sleep and Travel scenes group useful device settings. Set a Sleep schedule or a nearby-tablet Work automation. Desk mode brings time, media, notifications and battery into a tablet view.</string>
+    <string name="tour_settings_title">Make Ecosystem yours</string>
+    <string name="tour_settings_body">Change your device name, sync and connection preferences, and appearance in Settings. Tap anywhere on a setting row to switch it; longer descriptions stay readable when text is enlarged.</string>
     <string name="tour_health_title">Keep things healthy</string>
     <string name="tour_health_body">Health checks explain connection, notification, clipboard and background setup. The disconnect log helps diagnose drops, while Connection Lab measures recovery. Fresh connection and Cast are also available in Quick Settings.</string>
     <string name="theme_light">Light</string>

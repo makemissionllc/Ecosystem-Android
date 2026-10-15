@@ -38,6 +38,9 @@ This file records user-facing Ecosystem Android features and quality-of-life cha
 - Device updates now recompose the existing dashboard instead of replacing its whole UI, preserving scroll position and animation state. Re-selecting an already open device, feature, settings, pairing, or about page avoids reloading its fragment, and the device drawer skips rebuilding when its visible device list has not changed.
 - The What’s new page and app tour describe these smoother returns and live updates.
 - The device discovery step in the app tour now shows how favorites make frequently used devices easier to reach.
+- Setting switches now respond across the full row, and longer descriptions wrap at the normal readable text size instead of shrinking on narrow screens or with larger text. The interactive tour now includes the Settings experience.
+- Pairing refreshes now update only device data; connectivity and permission status are checked on screen entry or return from system settings instead of on every peer-list update.
+- Phone navigation selection now eases between the mockup's active and inactive pill colors, matching the app's short, interaction-driven motion elsewhere.
 
 ### Availability notes
 

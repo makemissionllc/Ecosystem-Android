@@ -50,7 +50,7 @@ import androidx.compose.ui.unit.sp
 import org.kde.kdeconnect_tp.BuildConfig
 import org.kde.kdeconnect_tp.R
 
-internal enum class TourAction { DEVICES, DASHBOARD, SHARE, CLIPBOARD, NOTIFICATIONS, CONNECTION, CONTROL, MIRROR, SCENES, HEALTH }
+internal enum class TourAction { DEVICES, DASHBOARD, SHARE, CLIPBOARD, NOTIFICATIONS, CONNECTION, CONTROL, MIRROR, SCENES, SETTINGS, HEALTH }
 
 private data class TourStep(
     val title: Int,
@@ -69,6 +69,7 @@ private val tourSteps = listOf(
     TourStep(R.string.tour_connections_title, R.string.tour_connections_body, R.drawable.feature_wifi, TourAction.CONNECTION),
     TourStep(R.string.tour_control_title, R.string.tour_control_body, R.drawable.feature_cast, TourAction.MIRROR),
     TourStep(R.string.tour_scenes_title, R.string.tour_scenes_body, R.drawable.feature_work, TourAction.SCENES),
+    TourStep(R.string.tour_settings_title, R.string.tour_settings_body, R.drawable.ic_appearance_24, TourAction.SETTINGS),
     TourStep(R.string.tour_health_title, R.string.tour_health_body, R.drawable.feature_battery, TourAction.HEALTH),
 )
 
@@ -95,6 +96,7 @@ internal fun WhatsNewDialog(onDismiss: () -> Unit, onStartTour: () -> Unit) {
                 LearningHighlight(R.drawable.feature_cast, R.string.whats_new_cast_title, R.string.whats_new_cast_body)
                 LearningHighlight(R.drawable.feature_wifi, R.string.whats_new_connection_title, R.string.whats_new_connection_body)
                 LearningHighlight(R.drawable.feature_home, R.string.whats_new_favorites_title, R.string.whats_new_favorites_body)
+                LearningHighlight(R.drawable.ic_appearance_24, R.string.whats_new_settings_title, R.string.whats_new_settings_body)
                 LearningHighlight(R.drawable.feature_clipboard, R.string.whats_new_everyday_title, R.string.whats_new_everyday_body)
                 LearningHighlight(R.drawable.feature_battery, R.string.whats_new_efficiency_title, R.string.whats_new_efficiency_body)
                 LearningHighlight(R.drawable.feature_sync, R.string.whats_new_navigation_title, R.string.whats_new_navigation_body)

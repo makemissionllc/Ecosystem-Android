@@ -127,6 +127,7 @@ class EcosystemSettingsFragment : Fragment() {
             TourAction.SCENES -> selectedDevice?.let {
                 mainActivity.openFeatureScreen(it.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.SCENES)
             } ?: mainActivity.onDeviceSelected(null)
+            TourAction.SETTINGS -> mainActivity.openSettings()
             TourAction.HEALTH -> startActivity(
                 Intent(requireContext(), BackgroundFeaturesActivity::class.java)
                     .putExtra(BackgroundFeaturesActivity.EXTRA_SCREEN, BackgroundFeaturesActivity.SCREEN_HEALTH),
@@ -416,7 +417,13 @@ private fun SettingsRow(
 ) {
     Row(
         modifier = modifier.fillMaxWidth().heightIn(min = 64.dp)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                when {
+                    onClick != null -> Modifier.clickable(onClick = onClick)
+                    checked != null && onCheckedChange != null -> Modifier.clickable { onCheckedChange(!checked) }
+                    else -> Modifier
+                },
+            )
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -433,9 +440,8 @@ private fun SettingsRow(
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
             Text(subtitle, style = MaterialTheme.typography.bodyMedium,
-                fontSize = if (subtitle.length > 27) 12.sp else MaterialTheme.typography.bodyMedium.fontSize,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         when {
             checked != null && onCheckedChange != null -> Switch(
