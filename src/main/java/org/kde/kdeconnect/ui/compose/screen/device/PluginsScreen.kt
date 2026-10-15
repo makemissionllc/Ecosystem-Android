@@ -103,6 +103,11 @@ data class PluginDashboardItem(
     val available: Boolean = true,
 )
 
+data class RecentFeature(
+    val title: String,
+    val iconRes: Int,
+)
+
 @Composable
 fun PluginsScreen(
     pluginsWithButtons: List<Plugin.PluginUiButton>,
@@ -121,6 +126,8 @@ fun PluginsScreen(
     remoteDeviceIcon: Int,
     connectivityType: String?,
     onConnectionClick: (() -> Unit)? = null,
+    recentFeature: RecentFeature? = null,
+    onRecentFeatureClick: (() -> Unit)? = null,
 ) {
     PluginsScreenContent(
         pluginsWithButtons = pluginsWithButtons,
@@ -139,6 +146,8 @@ fun PluginsScreen(
         remoteDeviceIcon = remoteDeviceIcon,
         connectivityType = connectivityType,
         onConnectionClick = onConnectionClick,
+        recentFeature = recentFeature,
+        onRecentFeatureClick = onRecentFeatureClick,
     )
 }
 
@@ -160,6 +169,8 @@ private fun PluginsScreenContent(
     remoteDeviceIcon: Int,
     connectivityType: String?,
     onConnectionClick: (() -> Unit)? = null,
+    recentFeature: RecentFeature? = null,
+    onRecentFeatureClick: (() -> Unit)? = null,
 ) {
     val bottomPadding = safeDrawingBottomPadding().calculateBottomPadding()
     val topPadding = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
@@ -220,6 +231,52 @@ private fun PluginsScreenContent(
                     remoteDeviceIcon = remoteDeviceIcon,
                     connectivityType = connectivityType,
                 )
+                }
+
+                AnimatedVisibility(
+                    visible = recentFeature != null && onRecentFeatureClick != null,
+                    enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { -it / 10 },
+                ) {
+                    recentFeature?.let { feature ->
+                        Card(
+                            onClick = { onRecentFeatureClick?.invoke() },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.extraLarge,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            ) {
+                                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
+                                    Image(
+                                        painter = painterResource(feature.iconRes),
+                                        contentDescription = null,
+                                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
+                                        modifier = Modifier.size(44.dp).padding(11.dp),
+                                    )
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.dashboard_continue_feature),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = feature.title,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Text(
+                                    text = stringResource(R.string.dashboard_continue),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                    }
                 }
 
                 if (!isWideLayout) clipboardAction?.let { button ->

@@ -5,6 +5,7 @@ Ecosystem personal device link — Android app. Fork of [KDE Connect Android](ht
 Upstream features (shared clipboard, notification sync, file/URL share, media remote, virtual touchpad/keyboard, SMS, Find My Phone, etc.) are retained. This fork adds multi-transport fallback, Shizuku-backed background work, per-device Ecosystem screens, and a USB Connection Lab harness.
 
 For a fuller, current description of the app, implemented mockups, architecture, verification, and remaining feature ideas, see [`docs/APP_AND_WORK_LOG.md`](docs/APP_AND_WORK_LOG.md).
+User-facing feature history is recorded in [`CHANGELOG.md`](CHANGELOG.md); the same highlights and an interactive tour are available from Settings.
 
 ## Current status
 
@@ -12,12 +13,7 @@ For a fuller, current description of the app, implemented mockups, architecture,
 - App: `versionName 1.36.0`, `versionCode 13600` in `build.gradle.kts:40-46`.
 - SDKs: `minSdk 23`, `targetSdk 37`, `compileSdk 37`, Java 11 + core-library desugaring, Compose + ViewBinding + AIDL + KSP (`build.gradle.kts:37-101`).
 - Toolchain: AGP `9.4.1`, Kotlin `2.4.21`, Shizuku `12.2.0` (pinned for API 23), coroutines `1.11.0`, SSHD `2.20.0` (`gradle/libs.versions.toml`).
-- Last 10 committed commits cover: transport types/ranking, Tailscale detection, Bluetooth small-packet guard, Wi-Fi Direct fallback, Shizuku hotspot fallback, route prioritization + link-switch logging, deduplicated clipboard queue, Connection Lab + `scripts/connection-lab.sh`, Tailscale/flapping metric fixes.
-- Working tree (uncommitted, `git status --short`): ~30 modified files under `src/`, `Graphics/Mockups/`, plus untracked Ecosystem work:
-  - `plugins/ecosystem/` (`EcosystemPlugin.kt`, `MirrorService.kt`, `MirrorSession.kt`)
-  - `ui/features/` (`FeatureFragment.kt`, `FeatureScreens.kt`, `SceneSupport.kt`)
-  - `plugins/clipboard/ClipboardHistory.kt`, `plugins/receivenotifications/RemoteNotifications.kt`, `ui/EcosystemSettingsFragment.kt`
-  - 4 drawables (`ic_appearance_24`, `ic_document_24`, `ic_notifications_24`, `ic_notifications_outline_24`), 17 new mockups (Clipboard history, Connection, Find and control, Notifications, Scenes, Touchpad, Desk mode, Mirror, App icon).
+- Recent work adds prioritized connection fallback, clipboard delivery safeguards, background diagnostics, per-device Ecosystem screens, scenes, screen mirroring, and Quick Settings actions. See [`CHANGELOG.md`](CHANGELOG.md) for the user-facing feature list.
 
 ## Features
 
@@ -42,15 +38,15 @@ Background hardening already committed: foreground `BackgroundService` lifecycle
 
 - `ClipboardSyncManager.kt` + `EcosystemClipboardUserService.kt` + `IClipboardWatcher.aidl` / `IClipboardSyncCallback.aidl`: Shizuku user service (`uid 2000`, fakes `com.android.shell` for Android 16 validation) watches clipboard in background. `isAutomaticAvailable()` = enabled + watcher active + trusted-WiFi allowed. Pref `ecosystem_clipboard_sync` (`enabled=false` default, `trustedWifiOnly`, `plainTextOnly=true`, `showConfirmation`, `pausedUntil`, `last_local_hash`).
 - Delivery: per-device queue with UUID + `ecosystem_clipboard_sent_at`, 15s retry throttle, ACK `ecosystem.clipboard.ack`, 500-ID incoming dedup, 5s remote-hash cooldown, sensitive/blank/remote-echo filtering, trusted-device + trusted-network gates. Feeds `ConnectionLab.recordClipboardDelay/Duplicate`, `pendingDeliveryCount()`.
-- History (untracked `ClipboardHistory.kt`): pinned + recent (cap 100, `>100k` dropped), move-to-top dedup by text, `ClipboardPage` in `FeatureScreens.kt:158-222` with 1h pause, pin/delete/copy-to-peer.
+- History (`ClipboardHistory.kt`): pinned + recent (cap 100, `>100k` dropped), move-to-top dedup by text, `ClipboardPage` with 1h pause, pin/delete/copy-to-peer.
 - Manual fallback (`ClipboardPlugin.kt: canSyncAutomatically`, `userInitiatedSendClipboard`) when watcher unavailable.
 
-### Ecosystem remote / mirror / scenes (untracked, not yet committed)
+### Ecosystem remote / mirror / scenes
 
 - `plugins/ecosystem/EcosystemPlugin.kt`: `ecosystem.control.request/response` + `ecosystem.mirror.frame`, 10s UUID timeout. Actions: `status/ping/volume/back/home/recent/lock/apps/launch/text/scene/mirror/stopMirror/touch/screenshot` (accessibility gestures, `takeScreenshot` API 30+).
 - `MirrorService.kt` / `MirrorSession.kt`: foreground service `918` (`mediaProjection`), 720p `ImageReader`, 5fps/200ms throttle, JPEG 65/85 Base64, `>2MB` / `16MP` guards, consent via `MirrorConsentActivity` + `MirrorSession.offer()`.
 - `ui/features/SceneSupport.kt`: scenes `work/movie/sleep/travel` (DND, volume, dark theme, brightness 20, `travel_mode`), `sleep@23:00` alarm + `desk` (near tablet) automations, `SceneAlarmReceiver`.
-- `plugins/receivenotifications/RemoteNotifications.kt` (untracked) + `ReceiveNotificationsPlugin.kt`: dual-path — system notification + in-app `StateFlow` feed (cap 200) with quick replies (`On my way` / `Call later` + custom) and dismiss, used by `NotificationsPage` / `DeskPage`.
+- `plugins/receivenotifications/RemoteNotifications.kt` + `ReceiveNotificationsPlugin.kt`: dual-path — system notification + in-app `StateFlow` feed (cap 200) with quick replies (`On my way` / `Call later` + custom) and dismiss, used by `NotificationsPage` / `DeskPage`.
 
 ### Background UX (`ui/background/`)
 
@@ -64,11 +60,11 @@ Background hardening already committed: foreground `BackgroundService` lifecycle
 ### UI (`ui/`, `ui/compose/`)
 
 - `MainActivity.kt`: drawer + `R.id.container` host, two-pane via `R.bool.is_two_pane`, menus (AddDevice/Settings/About/Share + devices), routes `EXTRA_DEVICE_ID` / `ACTION_SEND` → `ShareFragment`, `PhoneNavigationBar.kt` pill bar on narrow windows (`[Devices,Share,Settings]`).
-- `EcosystemSettingsFragment.kt` (untracked, current default Settings): Compose groups Device (rename, clipboard toggle, per-device notifications), Connection (auto-connect, keep-running + Shizuku health jump), App (appearance, About `BuildConfig.VERSION_NAME`), Advanced → legacy `SettingsFragment.kt`.
+- `EcosystemSettingsFragment.kt` (current default Settings): Compose groups Device (rename, clipboard toggle, per-device notifications), Connection (auto-connect, keep-running + Shizuku health jump), App (appearance, About, What’s new, interactive tour), Advanced → legacy `SettingsFragment.kt`.
 - `DeviceFragment.kt` → Compose `PluginsScreen.kt` / `DevicePairingScreen.kt` / `DeviceErrorScreen.kt` + dashboard cards (Clipboard/Notifications/Share/Mpris, +MousePad/RunCommand on tablet).
 - `PairingFragment.kt` → `pairing/PairingScreen.kt` + `ViewModel.kt`.
 - Share: `plugins/share/ShareFragment.kt` + `compose/screen/share/ShareScreen.kt` (file picker, drag-drop, transfer history, offline URL queue).
-- Untracked `ui/features/FeatureFragment.kt` (`CLIPBOARD,NOTIFICATIONS,CONNECTION,CONTROL,SCENES,MIRROR,DESK`) + `FeatureScreens.kt` (`ClipboardPage`, `NotificationsPage` All/Digest, `ConnectionPage` with ping latency, `ControlPage`, `ScenesPage`, `MirrorPage` tap/drag + keyboard, `DeskPage` clock/media/notifications/battery).
+- `ui/features/FeatureFragment.kt` (`CLIPBOARD,NOTIFICATIONS,CONNECTION,CONTROL,SCENES,MIRROR,DESK`) + `FeatureScreens.kt` (`ClipboardPage`, `NotificationsPage` All/Digest, `ConnectionPage` with ping latency, `ControlPage`, `ScenesPage`, `MirrorPage` tap/drag + keyboard, `DeskPage` clock/media/notifications/battery).
 - Manifests: `src/main/AndroidManifest.xml` (~40 permissions, FGS `connectedDevice` + `mediaProjection`, Shizuku provider, `FileProvider`, tiles, MMS, RunCommand, mouse/digitizer/presenter/bigscreen). `src/debug/AndroidManifest.xml` makes `BackgroundFeaturesActivity` exported + `DUMP` (for `adb am start`) and adds `QuitActivity`.
 
 ## Connection Lab
@@ -92,9 +88,9 @@ src/main/java/org/kde/kdeconnect/
   backends/{ConnectionTransport,FallbackLinkManager,BaseLink,BaseLinkProvider,
     lan/{LanLink,LanLinkProvider,MdnsDiscovery,TailscaleRoute},
     bluetooth/, wifidirect/WifiDirectLinkProvider.kt, loopback/}
-  plugins/{clipboard/, ecosystem/ (untracked), receivenotifications/, share/, ...}
-  ui/{MainActivity,DeviceFragment,SettingsFragment,EcosystemSettingsFragment (untracked),
-    features/ (untracked), background/{ConnectionLab,ConnectionLabScreen,HealthCheckScreen,
+  plugins/{clipboard/, ecosystem/, receivenotifications/, share/, ...}
+  ui/{MainActivity,DeviceFragment,SettingsFragment,EcosystemSettingsFragment,
+    features/, background/{ConnectionLab,ConnectionLabScreen,HealthCheckScreen,
     DisconnectLog,ConnectionRecovery,HotspotSupport,HotspotUserService,ShizukuSupport,
     KeepAliveSupport,CompanionSupport,...}, compose/screen/...}
   *.aidl: background/IHotspotControl, background/IKeepAliveService,

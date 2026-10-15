@@ -218,6 +218,14 @@ This collaboration has covered both the existing transport/reliability work in t
 - Health includes tile setup instructions and reports freeform fallback. Android 13+ can show the system add-tile prompt; older releases show manual Quick Settings instructions.
 - Verification on 2026-10-15: `assembleDebug` and `testDebugUnitTest` passed. The debug APK installed over USB on the OnePlus. The phone was dozing and the Pad was not attached, so live UI, pairing, QS tile, mirroring, clipboard, and tablet tests were not completed; no wake/lock command was sent.
 
+### Learning, dashboard continuity, and refresh efficiency — 2026-10-15
+
+- Added a version-aware **What’s new** view and a ten-step interactive tour in Settings. Each tour step links to the relevant device, sharing, feature, or Health screen; device-dependent steps route to pairing when there is no selected peer.
+- Added **Continue where you left off** to a paired-device dashboard. The selected device remembers its most recently opened feature locally and provides a direct return action.
+- Centered and width-limited Settings content on large windows and added responsive bounds to feature screens. Added short, finite crossfades to the tutorial; it does not run a repeating animation.
+- Reduced feature-screen time refreshes from once per second to once per minute for age labels and the desk clock. Mirror staleness checks run every two seconds only while Mirror is visible, and lifecycle handling stops refreshes in the background.
+- Added [`../CHANGELOG.md`](../CHANGELOG.md) as the feature history and made its highlights available from Settings.
+
 ### Brainstormed feature status
 
 “Implemented” below means the relevant feature exists in this checkout; it does not guarantee identical behavior on every Android/OEM version. “Partial” means a useful core or prerequisite exists, while the complete idea is still outstanding.

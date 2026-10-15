@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -92,14 +93,54 @@ class EcosystemSettingsFragment : Fragment() {
                                 .replace(R.id.container, AboutFragment.newInstance())
                                 .commit()
                         },
+                        onTryTour = ::tryTourAction,
                     )
                 }
             }
         }
+
+    private fun tryTourAction(action: TourAction) {
+        val mainActivity = activity as? MainActivity ?: return
+        val context = context ?: return
+        val selectedDevice = MainActivity.getSelectedDeviceId(context)
+            ?.let(KdeConnect.getInstance()::getDevice)
+            ?.takeIf { it.isPaired }
+        when (action) {
+            TourAction.DEVICES -> mainActivity.onDeviceSelected(null)
+            TourAction.DASHBOARD -> mainActivity.onDeviceSelected(selectedDevice?.deviceId)
+            TourAction.SHARE -> mainActivity.openShareScreen(selectedDevice?.deviceId)
+            TourAction.CLIPBOARD -> selectedDevice?.let {
+                mainActivity.openFeatureScreen(it.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD)
+            } ?: mainActivity.onDeviceSelected(null)
+            TourAction.NOTIFICATIONS -> selectedDevice?.let {
+                mainActivity.openFeatureScreen(it.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS)
+            } ?: mainActivity.onDeviceSelected(null)
+            TourAction.CONNECTION -> selectedDevice?.let {
+                mainActivity.openFeatureScreen(it.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION)
+            } ?: mainActivity.onDeviceSelected(null)
+            TourAction.CONTROL -> selectedDevice?.let {
+                mainActivity.openFeatureScreen(it.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.CONTROL)
+            } ?: mainActivity.onDeviceSelected(null)
+            TourAction.MIRROR -> selectedDevice?.let {
+                mainActivity.openFeatureScreen(it.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR)
+            } ?: mainActivity.onDeviceSelected(null)
+            TourAction.SCENES -> selectedDevice?.let {
+                mainActivity.openFeatureScreen(it.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.SCENES)
+            } ?: mainActivity.onDeviceSelected(null)
+            TourAction.HEALTH -> startActivity(
+                Intent(requireContext(), BackgroundFeaturesActivity::class.java)
+                    .putExtra(BackgroundFeaturesActivity.EXTRA_SCREEN, BackgroundFeaturesActivity.SCREEN_HEALTH),
+            )
+        }
+    }
 }
 
 @Composable
-private fun EcosystemSettingsScreen(onOpenAdvanced: () -> Unit, onOpenAbout: () -> Unit) {
+private fun EcosystemSettingsScreen(
+    onOpenAdvanced: () -> Unit,
+    onOpenAbout: () -> Unit,
+    onTryTour: (TourAction) -> Unit,
+) {
     val context = LocalContext.current
     val statusBarInset = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this).toDp() }
     val preferences = remember(context) { PreferenceManager.getDefaultSharedPreferences(context) }
@@ -121,6 +162,11 @@ private fun EcosystemSettingsScreen(onOpenAdvanced: () -> Unit, onOpenAbout: () 
     var deviceName by remember(context) { mutableStateOf(DeviceHelper.getDeviceName(context)) }
     var showDeviceNameDialog by remember { mutableStateOf(false) }
     var showAppearanceDialog by remember { mutableStateOf(false) }
+    var showWhatsNew by remember { mutableStateOf(false) }
+    var showAppTour by remember { mutableStateOf(false) }
+    var whatsNewSeen by remember(context) {
+        mutableStateOf(preferences.getString(KEY_WHATS_NEW_SEEN_VERSION, null) == org.kde.kdeconnect_tp.BuildConfig.VERSION_NAME)
+    }
     val appearanceScope = rememberCoroutineScope()
 
     val deviceGroup: @Composable () -> Unit = {
@@ -211,12 +257,36 @@ private fun EcosystemSettingsScreen(onOpenAdvanced: () -> Unit, onOpenAbout: () 
             )
         }
     }
+    val learningGroup: @Composable () -> Unit = {
+        SettingsGroup {
+            SettingsRow(
+                icon = R.drawable.ic_document_24,
+                title = stringResource(R.string.settings_whats_new),
+                subtitle = stringResource(R.string.settings_whats_new_summary),
+                value = if (whatsNewSeen) null else stringResource(R.string.settings_whats_new_badge),
+                onClick = {
+                    preferences.edit { putString(KEY_WHATS_NEW_SEEN_VERSION, org.kde.kdeconnect_tp.BuildConfig.VERSION_NAME) }
+                    whatsNewSeen = true
+                    showWhatsNew = true
+                },
+            )
+            SettingsDivider()
+            SettingsRow(
+                icon = R.drawable.feature_sync,
+                title = stringResource(R.string.settings_app_tour),
+                subtitle = stringResource(R.string.settings_app_tour_summary),
+                onClick = { showAppTour = true },
+            )
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val wideLayout = maxWidth >= 600.dp
             Column(
                 modifier = Modifier.fillMaxSize()
+                    .widthIn(max = 1100.dp)
+                    .align(Alignment.TopCenter)
                     .verticalScroll(rememberScrollState())
                     .padding(start = 20.dp, top = statusBarInset + 20.dp, end = 20.dp, bottom = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -234,12 +304,14 @@ private fun EcosystemSettingsScreen(onOpenAdvanced: () -> Unit, onOpenAbout: () 
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             connectionGroup()
                             appGroup()
+                            learningGroup()
                         }
                     }
                 } else {
                     deviceGroup()
                     connectionGroup()
                     appGroup()
+                    learningGroup()
                 }
                 Spacer(Modifier.size(120.dp))
                 TextButton(onClick = onOpenAdvanced, modifier = Modifier.align(Alignment.CenterHorizontally)) {
@@ -294,7 +366,25 @@ private fun EcosystemSettingsScreen(onOpenAdvanced: () -> Unit, onOpenAbout: () 
             confirmButton = { TextButton(onClick = { showAppearanceDialog = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
+    if (showWhatsNew) {
+        WhatsNewDialog(
+            onDismiss = { showWhatsNew = false },
+            onStartTour = { showWhatsNew = false; showAppTour = true },
+        )
+    }
+    if (showAppTour) {
+        AppTourDialog(
+            hasPairedDevice = selectedDevice?.isPaired == true,
+            onDismiss = { showAppTour = false },
+            onTry = { action ->
+                showAppTour = false
+                onTryTour(action)
+            },
+        )
+    }
 }
+
+private const val KEY_WHATS_NEW_SEEN_VERSION = "ecosystem_whats_new_seen_version"
 
 @Composable
 private fun SettingsGroup(content: @Composable () -> Unit) {

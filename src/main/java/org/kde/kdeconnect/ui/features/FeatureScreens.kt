@@ -71,15 +71,28 @@ import java.util.Date
 internal fun FeatureContent(device: Device, screen: FeatureDestination, onBack: () -> Unit, onNavigate: (FeatureDestination) -> Unit) {
     val lifecycle = LocalLifecycleOwner.current
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(lifecycle, device.deviceId) { lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-        while (true) { now = System.currentTimeMillis(); delay(1000) }
-    } }
+    val refreshInterval = when (screen) {
+        FeatureDestination.MIRROR -> 2_000L // Keep the stream status responsive without ticking every feature screen.
+        FeatureDestination.CONTROL, FeatureDestination.CLIPBOARD, FeatureDestination.NOTIFICATIONS,
+        FeatureDestination.DESK -> 60_000L
+        FeatureDestination.CONNECTION, FeatureDestination.SCENES -> null
+    }
+    if (refreshInterval != null) {
+        LaunchedEffect(lifecycle, device.deviceId, screen, refreshInterval) {
+            lifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    delay(refreshInterval)
+                    now = System.currentTimeMillis()
+                }
+            }
+        }
+    }
     when (screen) {
         FeatureDestination.CLIPBOARD -> ClipboardPage(device, now, onBack)
         FeatureDestination.NOTIFICATIONS -> NotificationsPage(device, now, onBack)
-        FeatureDestination.CONNECTION -> ConnectionPage(device, now, onBack)
+        FeatureDestination.CONNECTION -> ConnectionPage(device, onBack)
         FeatureDestination.CONTROL -> ControlPage(device, now, onBack)
-        FeatureDestination.SCENES -> ScenesPage(device, now, onBack)
+        FeatureDestination.SCENES -> ScenesPage(device, onBack)
         FeatureDestination.MIRROR -> MirrorPage(device, now, onBack)
         FeatureDestination.DESK -> DeskPage(device, now, onBack, onNavigate)
     }
@@ -89,14 +102,21 @@ internal fun FeatureContent(device: Device, screen: FeatureDestination, onBack: 
 private fun FeaturePage(title: String, onBack: () -> Unit, deviceName: String? = null, compact: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         val tablet = (LocalContext.current as? MainActivity)?.isTwoPaneLayout == true
-        Column(Modifier.fillMaxSize().then(if (tablet) Modifier else Modifier.statusBarsPadding()).verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, top = if (title.isEmpty()) 20.dp else 36.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            if (deviceName != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(FeatureIcons.Back, stringResource(R.string.feature_back)) }
-                Text(deviceName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            } else if (!compact) Spacer(Modifier.height(48.dp))
-            if (title.isNotEmpty()) Text(title, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
-            content()
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            Column(
+                Modifier.fillMaxSize().widthIn(max = 1_080.dp).align(Alignment.TopCenter)
+                    .then(if (tablet) Modifier else Modifier.statusBarsPadding())
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 20.dp, end = 20.dp, top = if (title.isEmpty()) 20.dp else 36.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (deviceName != null) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) { Icon(FeatureIcons.Back, stringResource(R.string.feature_back)) }
+                    Text(deviceName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                } else if (!compact) Spacer(Modifier.height(48.dp))
+                if (title.isNotEmpty()) Text(title, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
+                content()
+            }
         }
     }
 }
@@ -291,7 +311,7 @@ private fun NotificationCard(item: RemoteNotification, now: Long, reachable: Boo
 }
 
 @Composable
-private fun ConnectionPage(device: Device, now: Long, onBack: () -> Unit) {
+private fun ConnectionPage(device: Device, onBack: () -> Unit) {
     val context = LocalContext.current
     val plugin = KdeConnect.getInstance().getDevicePlugin<EcosystemPlugin>(device.deviceId)
     val state = plugin?.state?.collectAsState()?.value ?: RemoteControlState()
@@ -322,7 +342,6 @@ private fun ConnectionPage(device: Device, now: Long, onBack: () -> Unit) {
         if (plugin == null) Text(stringResource(R.string.feature_peer_update), color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (state.message.isNotBlank()) Text(state.message)
         TextButton(onClick = { BackgroundService.ForceRefreshConnections(context) }) { Text(stringResource(R.string.refresh)) }
-        @Suppress("UNUSED_VARIABLE") val refreshAt = now
     }
 }
 
@@ -403,11 +422,11 @@ private fun ControlPage(device: Device, now: Long, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ScenesPage(device: Device, now: Long, onBack: () -> Unit) {
+private fun ScenesPage(device: Device, onBack: () -> Unit) {
     val context = LocalContext.current
     var revision by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("") }
-    val prefs = remember(revision, now) { SceneSupport.prefs(context) }
+    val prefs = remember(revision) { SceneSupport.prefs(context) }
     val peer = KdeConnect.getInstance().getDevicePlugin<EcosystemPlugin>(device.deviceId)
     val remoteState = peer?.state?.collectAsState()?.value
     val active = prefs.getString("active", "")

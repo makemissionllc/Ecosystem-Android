@@ -52,6 +52,7 @@ import org.kde.kdeconnect.ui.compose.screen.device.DevicePairingScreen
 import org.kde.kdeconnect.ui.compose.screen.device.DeviceViewModel
 import org.kde.kdeconnect.ui.compose.screen.device.PluginsScreen
 import org.kde.kdeconnect.ui.compose.screen.device.PluginDashboardItem
+import org.kde.kdeconnect.ui.compose.screen.device.RecentFeature
 import org.kde.kdeconnect_tp.R
 import org.kde.kdeconnect_tp.databinding.ActivityDeviceBinding
 
@@ -324,6 +325,31 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                                         available = supported && plugin?.isCompatible == true,
                                     )
                                 }
+                                val recentDestination = requireContext()
+                                    .getSharedPreferences("stored_menu_selection", Context.MODE_PRIVATE)
+                                    .getString(MainActivity.lastFeatureScreenPreferenceKey(device.deviceId), null)
+                                    ?.let { runCatching { org.kde.kdeconnect.ui.features.FeatureDestination.valueOf(it) }.getOrNull() }
+                                val recentFeature = recentDestination?.let { destination ->
+                                    val title = when (destination) {
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD -> R.string.feature_clipboard
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS -> R.string.feature_notifications
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION -> R.string.feature_connection
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.CONTROL -> R.string.feature_controls
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.SCENES -> R.string.feature_scenes
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR -> R.string.feature_mirror
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.DESK -> R.string.feature_desk_mode
+                                    }
+                                    val icon = when (destination) {
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD -> R.drawable.feature_clipboard
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS -> R.drawable.feature_bell
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION -> R.drawable.feature_wifi
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.CONTROL -> R.drawable.feature_home
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.SCENES -> R.drawable.feature_work
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR -> R.drawable.feature_cast
+                                        org.kde.kdeconnect.ui.features.FeatureDestination.DESK -> R.drawable.feature_home
+                                    }
+                                    RecentFeature(getString(title), icon)
+                                }
                                 PluginsScreen(
                                     pluginsWithButtons = pluginsWithButtons,
                                     pluginCards = pluginCards,
@@ -371,6 +397,10 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
                                     remoteDeviceIcon = device.deviceType.toDrawableId(),
                                     connectivityType = device.connectivityType,
                                     onConnectionClick = { (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION) },
+                                    recentFeature = recentFeature,
+                                    onRecentFeatureClick = recentDestination?.let { destination ->
+                                        { (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, destination) }
+                                    },
                                 )
                                 displayBatteryInfoIfPossible()
                             } else {

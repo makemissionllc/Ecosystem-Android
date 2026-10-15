@@ -314,6 +314,7 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
     internal fun openFeatureScreen(deviceId: String, screen: org.kde.kdeconnect.ui.features.FeatureDestination) {
         mCurrentDevice = deviceId
         mCurrentMenuEntry = deviceIdToMenuEntryId(deviceId)
+        preferences.edit { putString(lastFeatureScreenPreferenceKey(deviceId), screen.name) }
         setContentFragment(org.kde.kdeconnect.ui.features.FeatureFragment.newInstance(deviceId, screen))
     }
 
@@ -559,6 +560,8 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
         const val RESULT_NOTIFICATIONS_ENABLED = RESULT_FIRST_USER+1
         const val FLAG_FORCE_OVERVIEW = "forceOverview"
         const val EXTRA_SHOW_SHARE = "showShare"
+
+        fun lastFeatureScreenPreferenceKey(deviceId: String): String = "last_feature_screen_$deviceId"
 
         fun getSelectedDeviceId(context: Context): String? = context
             .getSharedPreferences("stored_menu_selection", Context.MODE_PRIVATE)
