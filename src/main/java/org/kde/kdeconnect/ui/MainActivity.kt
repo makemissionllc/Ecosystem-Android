@@ -62,7 +62,7 @@ private const val MENU_ENTRY_DEVICE_UNKNOWN = 9999 //It's still a device, but we
 private const val STATE_SELECTED_MENU_ENTRY = "selected_entry" //Saved only in onSaveInstanceState
 private const val STATE_SELECTED_DEVICE = "selected_device" //Saved persistently in preferences
 
-private data class DeviceMenuSnapshot(val id: String, val name: String, val icon: Int)
+private data class DeviceMenuSnapshot(val id: String, val name: String, val icon: Int, val isFavorite: Boolean)
 
 class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
     private val binding by lazy { ActivityMainBinding.inflate(layoutInflater) }
@@ -377,10 +377,15 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
     }
 
     private fun updateDeviceList() {
+        val favoriteDeviceIds = DeviceFavorites.getIds(this)
         val devices = KdeConnect.getInstance().devices.values
             .filter { it.isReachable && it.isPaired }
-            .sortedWith(compareBy<Device> { it.name.lowercase() }.thenBy { it.deviceId })
-        val snapshot = devices.map { DeviceMenuSnapshot(it.deviceId, it.name, it.iconDrawable) }
+            .sortedWith(compareByDescending<Device> { it.deviceId in favoriteDeviceIds }
+                .thenBy { it.name.lowercase() }
+                .thenBy { it.deviceId })
+        val snapshot = devices.map {
+            DeviceMenuSnapshot(it.deviceId, it.name, it.iconDrawable, it.deviceId in favoriteDeviceIds)
+        }
         if (snapshot == deviceMenuSnapshot) {
             if (mCurrentMenuEntry >= MENU_ENTRY_DEVICE_FIRST_ID) {
                 mCurrentMenuEntry = deviceIdToMenuEntryId(mCurrentDevice)
@@ -420,6 +425,8 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
         }
         mNavigationView.setCheckedItem(mCurrentMenuEntry)
     }
+
+    fun onDeviceFavoritesChanged() = updateDeviceList()
 
     override fun onStart() {
         super.onStart()

@@ -135,6 +135,14 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
 
     private fun populateDeviceMenu(menu: Menu) {
         val device = device ?: return
+        val isFavorite = device.deviceId in DeviceFavorites.getIds(requireContext())
+        menu.add(if (isFavorite) R.string.device_favorite_remove else R.string.device_favorite_add)
+            .setOnMenuItemClickListener {
+                DeviceFavorites.toggle(requireContext(), device.deviceId)
+                (mActivity as? MainActivity)?.onDeviceFavoritesChanged()
+                mActivity?.invalidateOptionsMenu()
+                true
+            }
         val menuEntries: Collection<Plugin.PluginUiMenuEntry> =
             device.loadedPlugins.values.flatMap { it.getUiMenuEntries() }
         for (entry in menuEntries) {

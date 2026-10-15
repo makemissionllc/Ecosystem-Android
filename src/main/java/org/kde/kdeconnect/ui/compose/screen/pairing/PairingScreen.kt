@@ -6,13 +6,8 @@
 
 package org.kde.kdeconnect.ui.compose.screen.pairing
 
-import android.animation.ValueAnimator
-import android.os.Build
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -59,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -75,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Star
 import org.kde.kdeconnect.extensions.safeDrawingBottomPadding
 import org.kde.kdeconnect.ui.compose.KdeTheme
 import org.kde.kdeconnect.ui.compose.components.KdeBodyLargeText
@@ -94,6 +91,7 @@ fun PairingScreen(
     onNotificationSettingsClick: () -> Unit = {},
     onLocalNetworkPermissionClick: () -> Unit = {},
     onRefresh: () -> Unit = {},
+    onFavoriteClick: (String) -> Unit = {},
     showOverflow: Boolean = false,
     onMoreClick: () -> Unit = {},
 ) {
@@ -125,6 +123,7 @@ fun PairingScreen(
                         lazyListState = lazyListState,
                         uiState = uiState,
                         onClick = onClick,
+                        onFavoriteClick = onFavoriteClick,
                         onWifiSettingsClick = onWifiSettingsClick,
                         onNotificationSettingsClick = onNotificationSettingsClick,
                         onLocalNetworkPermissionClick = onLocalNetworkPermissionClick,
@@ -136,6 +135,7 @@ fun PairingScreen(
                         lazyListState = lazyListState,
                         uiState = uiState,
                         onClick = onClick,
+                        onFavoriteClick = onFavoriteClick,
                         onWifiSettingsClick = onWifiSettingsClick,
                         onNotificationSettingsClick = onNotificationSettingsClick,
                         onLocalNetworkPermissionClick = onLocalNetworkPermissionClick,
@@ -153,6 +153,7 @@ private fun WidePairingContent(
     lazyListState: LazyListState,
     uiState: PairingUiState,
     onClick: (String) -> Unit,
+    onFavoriteClick: (String) -> Unit,
     onWifiSettingsClick: () -> Unit,
     onNotificationSettingsClick: () -> Unit,
     onLocalNetworkPermissionClick: () -> Unit,
@@ -191,7 +192,7 @@ private fun WidePairingContent(
                 state = lazyListState,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                DeviceSections(uiState = uiState, onClick = onClick)
+                DeviceSections(uiState = uiState, onClick = onClick, onFavoriteClick = onFavoriteClick)
             }
         }
     }
@@ -202,6 +203,7 @@ private fun CompactPairingContent(
     lazyListState: LazyListState,
     uiState: PairingUiState,
     onClick: (String) -> Unit,
+    onFavoriteClick: (String) -> Unit,
     onWifiSettingsClick: () -> Unit,
     onNotificationSettingsClick: () -> Unit,
     onLocalNetworkPermissionClick: () -> Unit,
@@ -227,7 +229,7 @@ private fun CompactPairingContent(
                 onLocalNetworkPermissionClick = onLocalNetworkPermissionClick
             )
         }
-        DeviceSections(uiState = uiState, onClick = onClick)
+        DeviceSections(uiState = uiState, onClick = onClick, onFavoriteClick = onFavoriteClick)
     }
 }
 
@@ -255,24 +257,10 @@ private fun DiscoveryHeader(showOverflow: Boolean, onMoreClick: () -> Unit) {
 
 @Composable
 private fun RadarCard(modifier: Modifier = Modifier) {
-    val (sweep, pulse) = if (systemAnimationsEnabled()) {
-        val transition = rememberInfiniteTransition(label = "deviceRadar")
-        val animatedSweep by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(2600), repeatMode = RepeatMode.Restart),
-            label = "radarSweep"
-        )
-        val animatedPulse by transition.animateFloat(
-            initialValue = 0.65f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(1200), repeatMode = RepeatMode.Reverse),
-            label = "radarPulse"
-        )
-        animatedSweep to animatedPulse
-    } else {
-        0f to 0.82f
-    }
+    // Keep the discovery illustration still at rest: an always-running Canvas sweep
+    // was redrawing the whole card every frame even when no one was interacting.
+    val sweep = 0f
+    val pulse = 0.82f
     val lineColor = MaterialTheme.colorScheme.primary
 
     Card(
@@ -326,23 +314,24 @@ private fun RadarCard(modifier: Modifier = Modifier) {
     }
 }
 
-private fun systemAnimationsEnabled(): Boolean =
-    Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
-
-private fun LazyListScope.DeviceSections(uiState: PairingUiState, onClick: (String) -> Unit) {
+private fun LazyListScope.DeviceSections(
+    uiState: PairingUiState,
+    onClick: (String) -> Unit,
+    onFavoriteClick: (String) -> Unit,
+) {
     item { DeviceSectionHeader(stringResource(R.string.category_connected_devices)) }
     if (uiState.connected.isEmpty()) {
         item { EmptyPlaceholder() }
     } else {
-        items(uiState.connected, key = { it.id }) { device -> DeviceCard(device, onClick) }
+        items(uiState.connected, key = { it.id }) { device -> DeviceCard(device, onClick, onFavoriteClick) }
     }
     if (uiState.available.isNotEmpty()) {
         item { DeviceSectionHeader(stringResource(R.string.category_not_paired_devices)) }
-        items(uiState.available, key = { it.id }) { device -> DeviceCard(device, onClick) }
+        items(uiState.available, key = { it.id }) { device -> DeviceCard(device, onClick, onFavoriteClick) }
     }
     if (uiState.remembered.isNotEmpty()) {
         item { DeviceSectionHeader(stringResource(R.string.category_remembered_devices)) }
-        items(uiState.remembered, key = { it.id }) { device -> DeviceCard(device, onClick) }
+        items(uiState.remembered, key = { it.id }) { device -> DeviceCard(device, onClick, onFavoriteClick) }
     }
 }
 
@@ -356,7 +345,7 @@ private fun DeviceSectionHeader(title: String) {
 }
 
 @Composable
-private fun DeviceCard(device: DeviceUiModel, onClick: (String) -> Unit) {
+private fun DeviceCard(device: DeviceUiModel, onClick: (String) -> Unit, onFavoriteClick: (String) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
         onClick = { onClick(device.id) },
@@ -402,6 +391,28 @@ private fun DeviceCard(device: DeviceUiModel, onClick: (String) -> Unit) {
                 )
             } else {
                 Text(text = stringResource(R.string.pair), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            }
+            val starScale by animateFloatAsState(
+                targetValue = if (device.isFavorite) 1.12f else 1f,
+                animationSpec = spring(),
+                label = "favorite device scale",
+            )
+            IconButton(onClick = { onFavoriteClick(device.id) }) {
+                val description = stringResource(
+                    if (device.isFavorite) R.string.device_favorite_remove else R.string.device_favorite_add,
+                )
+                val tint = if (device.isFavorite) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                val modifier = Modifier.size(22.dp).graphicsLayer {
+                    scaleX = starScale
+                    scaleY = starScale
+                }
+                if (device.isFavorite) {
+                    Icon(Icons.Filled.Star, contentDescription = description, tint = tint, modifier = modifier)
+                } else {
+                    Icon(painterResource(R.drawable.ic_star_outline_24), contentDescription = description,
+                        tint = tint, modifier = modifier)
+                }
             }
         }
     }

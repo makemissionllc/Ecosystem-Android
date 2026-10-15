@@ -163,6 +163,10 @@ class PairingFragment : BaseFragment<DevicesListBinding>() {
                             }
                         },
                         onRefresh = { viewModel.onRefresh() },
+                        onFavoriteClick = { deviceId ->
+                            viewModel.toggleFavorite(deviceId)
+                            (mActivity as? MainActivity)?.onDeviceFavoritesChanged()
+                        },
                         showOverflow = (mActivity as? MainActivity)?.isTwoPaneLayout == true,
                         onMoreClick = { showPairingOptions(binding.composeView) },
                     )

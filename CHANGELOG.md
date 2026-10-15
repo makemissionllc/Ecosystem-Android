@@ -31,10 +31,13 @@ This file records user-facing Ecosystem Android features and quality-of-life cha
 
 - Settings now includes versioned What’s new notes and a step-by-step interactive tour with direct links into the app’s main features.
 - The device dashboard offers a one-tap return to the last feature opened for that device.
+- Star devices in the pairing list or device menu to keep your regulars at the top of the pairing list and navigation drawer. Favorites are saved across app restarts.
 - Settings content is centered and width-limited on larger windows, and feature screens use a readable maximum width across phones, tablets, and resized windows.
 - Feature screens refresh time-sensitive labels only as often as needed, stop refreshing while not visible, and keep the faster status check only on the active mirror screen.
+- Discovery and dashboard connection illustrations now settle into still states instead of redrawing continuously, reducing ongoing UI work while keeping motion for direct user actions.
 - Device updates now recompose the existing dashboard instead of replacing its whole UI, preserving scroll position and animation state. Re-selecting an already open device, feature, settings, pairing, or about page avoids reloading its fragment, and the device drawer skips rebuilding when its visible device list has not changed.
 - The What’s new page and app tour describe these smoother returns and live updates.
+- The device discovery step in the app tour now shows how favorites make frequently used devices easier to reach.
 
 ### Availability notes
 

@@ -12,5 +12,6 @@ data class DeviceUiModel(
     val name: String,
     val summaryRes: Int,
     val isReachable: Boolean,
-    val isPaired: Boolean
+    val isPaired: Boolean,
+    val isFavorite: Boolean = false,
 )

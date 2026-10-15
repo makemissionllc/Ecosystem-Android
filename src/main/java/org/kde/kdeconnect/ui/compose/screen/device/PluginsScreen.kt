@@ -14,10 +14,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -423,27 +419,10 @@ private fun DeviceEndpoint(name: String, icon: Int) {
 
 @Composable
 private fun ConnectionLine(modifier: Modifier = Modifier) {
-    val (pulse, movingDots) = if (systemAnimationsEnabled()) {
-        val transition = rememberInfiniteTransition(label = "connectionPulse")
-        val animatedPulse by transition.animateFloat(
-            initialValue = 0.45f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1100),
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "connectionPulseScale",
-        )
-        val animatedDots by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(tween(durationMillis = 1500)),
-            label = "connectionDots",
-        )
-        animatedPulse to animatedDots
-    } else {
-        0.82f to 0f
-    }
+    // The paired state is already clear from the check icon. Keep the line calm at
+    // rest instead of driving two full-time Canvas animations on the main dashboard.
+    val pulse = 0.82f
+    val movingDots = 0f
     val lineColor = MaterialTheme.colorScheme.onSurface
 
     Box(modifier = modifier.height(54.dp).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {

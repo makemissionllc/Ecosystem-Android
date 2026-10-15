@@ -20,6 +20,8 @@ import org.kde.kdeconnect.BackgroundService.Companion.ForceRefreshConnections
 import org.kde.kdeconnect.Device
 import org.kde.kdeconnect.ui.compose.extensions.device.toUiModel
 import org.kde.kdeconnect.ui.compose.model.device.DeviceUiModel
+import org.kde.kdeconnect.ui.DeviceFavorites
+import java.util.Locale
 
 class PairingViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -38,6 +40,7 @@ class PairingViewModel(application: Application) : AndroidViewModel(application)
     val pairingUiState: StateFlow<PairingUiState> = _pairingUiState.asStateFlow()
 
     private var allDevices: List<Device> = emptyList()
+    private val favoriteDeviceIds = MutableStateFlow(DeviceFavorites.getIds(application))
 
     fun getDeviceById(deviceId: String): Device? =
         allDevices.find { device -> device.deviceId == deviceId }
@@ -90,14 +93,33 @@ class PairingViewModel(application: Application) : AndroidViewModel(application)
             }
 
             _pairingUiState.update { state ->
+                val favorites = favoriteDeviceIds.value
                 state.copy(
                     hasDuplicateNames = hasDuplicateNames,
-                    connected = connected,
-                    available = available,
-                    remembered = remembered
+                    connected = favoriteFirst(connected, favorites),
+                    available = favoriteFirst(available, favorites),
+                    remembered = favoriteFirst(remembered, favorites),
                 )
             }
         }
+
+    fun toggleFavorite(deviceId: String) {
+        favoriteDeviceIds.value = DeviceFavorites.toggle(getApplication(), deviceId)
+        _pairingUiState.update { state ->
+            val favorites = favoriteDeviceIds.value
+            state.copy(
+                connected = favoriteFirst(state.connected, favorites),
+                available = favoriteFirst(state.available, favorites),
+                remembered = favoriteFirst(state.remembered, favorites),
+            )
+        }
+    }
+
+    private fun favoriteFirst(devices: List<DeviceUiModel>, favorites: Set<String>): List<DeviceUiModel> =
+        devices.map { it.copy(isFavorite = it.id in favorites) }
+            .sortedWith(compareByDescending<DeviceUiModel> { it.isFavorite }
+                .thenBy { it.name.lowercase(Locale.ROOT) }
+                .thenBy { it.id })
 
     fun onRefresh() {
         _pairingUiState.update { uiState -> uiState.copy(isRefreshing = true) }
