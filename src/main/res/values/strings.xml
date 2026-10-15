@@ -468,6 +468,8 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
     <string name="whats_new_everyday_body">Explore clipboard history, notification replies, sharing, media controls, touchpad, scenes, Desk mode, remote control and screen mirroring.</string>
     <string name="whats_new_efficiency_title">Lighter feature screens</string>
     <string name="whats_new_efficiency_body">Time-sensitive labels now refresh at the pace they need, and background refreshes pause when a screen is not visible.</string>
+    <string name="whats_new_navigation_title">Pick up without a reload</string>
+    <string name="whats_new_navigation_body">Updates keep your dashboard in place, and choosing the screen you already have open no longer reloads it.</string>
     <string name="whats_new_tour_hint">Open the interactive app tour to try each area. Some actions need a paired device or Android permission.</string>
     <string name="tour_title">Explore Ecosystem</string>
     <string name="tour_counter">Step %1$d of %2$d</string>
@@ -479,7 +481,7 @@ SPDX-License-Identifier: GPL-2.0-only OR GPL-3.0-only OR LicenseRef-KDE-Accepted
     <string name="tour_devices_title">Pair your devices</string>
     <string name="tour_devices_body">Nearby Ecosystem devices appear here. Pair once to create a trusted link. If discovery cannot find a device, add its IP address from the device menu.</string>
     <string name="tour_dashboard_title">Your device dashboard</string>
-    <string name="tour_dashboard_body">See connection status, open everyday actions, and enable the plugins you use. When you return, Continue where you left off takes you back to your latest tool.</string>
+    <string name="tour_dashboard_body">See connection status, open everyday actions, and enable the plugins you use. Live updates keep your place, and Continue where you left off takes you back to your latest tool.</string>
     <string name="tour_share_title">Share in a couple of taps</string>
     <string name="tour_share_body">Send text, links and files from the Android share sheet or the Share tab. Track active transfers, return to recent sends, or browse a paired device’s files when SFTP is enabled.</string>
     <string name="tour_clipboard_title">Clipboard, ready to go</string>

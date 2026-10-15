@@ -96,6 +96,7 @@ internal fun WhatsNewDialog(onDismiss: () -> Unit, onStartTour: () -> Unit) {
                 LearningHighlight(R.drawable.feature_wifi, R.string.whats_new_connection_title, R.string.whats_new_connection_body)
                 LearningHighlight(R.drawable.feature_clipboard, R.string.whats_new_everyday_title, R.string.whats_new_everyday_body)
                 LearningHighlight(R.drawable.feature_battery, R.string.whats_new_efficiency_title, R.string.whats_new_efficiency_body)
+                LearningHighlight(R.drawable.feature_sync, R.string.whats_new_navigation_title, R.string.whats_new_navigation_body)
                 Text(
                     stringResource(R.string.whats_new_tour_hint),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

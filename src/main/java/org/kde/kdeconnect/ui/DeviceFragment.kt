@@ -22,6 +22,9 @@ import androidx.activity.OnBackPressedCallback
 import androidx.annotation.StringRes
 import androidx.annotation.UiThread
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.viewModels
@@ -61,6 +64,13 @@ import org.kde.kdeconnect_tp.databinding.ActivityDeviceBinding
  */
 class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
 
+    private data class DashboardPluginContent(
+        val buttons: List<Plugin.PluginUiButton>,
+        val requiredPermissions: List<Plugin>,
+        val optionalPermissions: List<Plugin>,
+        val cards: List<PluginDashboardItem>,
+    )
+
     companion object {
         private const val ARG_DEVICE_ID = "deviceId"
         private const val ARG_FROM_DEVICE_LIST = "fromDeviceList"
@@ -86,6 +96,13 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
     private val device by lazy { KdeConnect.getInstance().getDevice(deviceId) }
 
     private val viewModel by viewModels<DeviceViewModel>()
+
+    // Keep the Compose tree (and its remembered state/scroll position) alive while the
+    // device model changes. Replacing setContent on every pairing/plugin callback was
+    // disposing and recreating the entire dashboard.
+    private var uiRevision by mutableIntStateOf(0)
+    private var pluginUiRevision by mutableIntStateOf(0)
+    private var deviceContentInitialized = false
 
     override fun onInflateBinding(
         inflater: LayoutInflater,
@@ -230,10 +247,15 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         super.onPause()
     }
 
-    private val pluginsChangedListener =
-        PluginsChangedListener { mActivity?.runOnUiThread { refreshUI() } }
+    private val pluginsChangedListener = PluginsChangedListener {
+        mActivity?.runOnUiThread {
+            pluginUiRevision++
+            refreshUI()
+        }
+    }
 
     override fun onDestroyView() {
+        deviceContentInitialized = false
         device?.apply {
             removePluginsChangedListener(pluginsChangedListener)
             removePairingCallback(pairingCallback)
@@ -257,184 +279,194 @@ class DeviceFragment : BaseFragment<ActivityDeviceBinding>() {
         //Once in-app, there is no point in keep displaying the notification if any
         device.hidePairingNotification()
 
-        binding.deviceView.apply {
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-            setContent {
-                KdeTheme(context) {
-                    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
-                    val pairingErrorMessage by viewModel.pairingErrorMessage.collectAsStateWithLifecycle()
+        if (deviceContentInitialized) {
+            uiRevision++
+        } else {
+            deviceContentInitialized = true
+            binding.deviceView.apply {
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+                setContent {
+                    KdeTheme(context) {
+                        // Reading this state invalidates the existing composition when the
+                        // device changes without discarding its remembered UI state.
+                        @Suppress("UNUSED_VARIABLE")
+                        val currentUiRevision = uiRevision
+                        val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+                        val pairingErrorMessage by viewModel.pairingErrorMessage.collectAsStateWithLifecycle()
 
-                    when (device.pairStatus) {
-                        PairingHandler.PairState.Paired -> {
-                            if (device.isReachable) {
-                                val pluginsWithButtons = device.loadedPlugins.values
-                                    .flatMap { plugin -> plugin.getUiButtons() }.toMutableList()
-                                val clipboardPlugin = device.loadedPlugins[Plugin.getPluginKey(ClipboardPlugin::class.java)]
-                                    as? ClipboardPlugin
-                                if (pluginsWithButtons.none { it.iconRes == R.drawable.ic_baseline_content_paste_24 }) {
-                                    clipboardPlugin?.getUiMenuEntries()?.firstOrNull()?.let { entry ->
-                                        pluginsWithButtons.add(Plugin.PluginUiButton(entry.name,
-                                            R.drawable.ic_baseline_content_paste_24, entry.onClick))
-                                    }
-                                }
-                                val pluginsNeedPermissions =
-                                    device.pluginsWithoutPermissions.values.filter { plugin ->
-                                        device.isPluginEnabled(plugin.pluginKey)
-                                    }
-                                val pluginsNeedOptionalPermissions =
-                                    device.pluginsWithoutOptionalPermissions.values.filter { plugin ->
-                                        device.isPluginEnabled(plugin.pluginKey)
-                                    }
-                                val featurePlugins = buildList {
-                                    add(Triple(Plugin.getPluginKey(ClipboardPlugin::class.java),
-                                        R.string.dashboard_clipboard, R.string.dashboard_clipboard_summary))
-                                    add(Triple(Plugin.getPluginKey(NotificationsPlugin::class.java),
-                                        R.string.dashboard_notifications, R.string.dashboard_notifications_summary))
-                                    add(Triple(Plugin.getPluginKey(SharePlugin::class.java),
-                                        R.string.dashboard_share, R.string.dashboard_share_summary))
-                                    add(Triple(Plugin.getPluginKey(MprisPlugin::class.java),
-                                        R.string.dashboard_media, R.string.dashboard_media_summary))
-                                    if (DeviceHelper.isTablet) {
-                                        add(Triple(Plugin.getPluginKey(MousePadPlugin::class.java),
-                                            R.string.dashboard_remote_input, R.string.dashboard_remote_input_summary))
-                                        add(Triple(Plugin.getPluginKey(RunCommandPlugin::class.java),
-                                            R.string.dashboard_commands, R.string.dashboard_commands_summary))
-                                    }
-                                }
-                                val pluginCards = featurePlugins.map { (pluginKey, name, description) ->
-                                    val supported = pluginKey in device.supportedPlugins
-                                    val plugin = device.getPluginIncludingWithoutPermissions(pluginKey)
-                                        ?: if (supported) PluginFactory.instantiatePluginForDevice(
-                                            requireContext(), pluginKey, device,
-                                        ) else null
-                                    val icon = when (pluginKey) {
-                                        Plugin.getPluginKey(ClipboardPlugin::class.java) -> R.drawable.ic_baseline_content_paste_24
-                                        Plugin.getPluginKey(NotificationsPlugin::class.java) -> R.drawable.ic_notifications_24
-                                        Plugin.getPluginKey(SharePlugin::class.java) -> R.drawable.share_plugin_action_24dp
-                                        Plugin.getPluginKey(MprisPlugin::class.java) -> R.drawable.mpris_plugin_action_24dp
-                                        Plugin.getPluginKey(MousePadPlugin::class.java) -> R.drawable.touchpad_plugin_action_24dp
-                                        else -> R.drawable.run_command_plugin_icon_24dp
-                                    }
-                                    PluginDashboardItem(
-                                        pluginKey = pluginKey,
-                                        name = getString(name),
-                                        description = getString(description),
-                                        iconRes = icon,
-                                        enabled = supported && device.isPluginEnabled(pluginKey),
-                                        action = plugin?.getUiButtons()?.firstOrNull(),
-                                        available = supported && plugin?.isCompatible == true,
-                                    )
-                                }
-                                val recentDestination = requireContext()
-                                    .getSharedPreferences("stored_menu_selection", Context.MODE_PRIVATE)
-                                    .getString(MainActivity.lastFeatureScreenPreferenceKey(device.deviceId), null)
-                                    ?.let { runCatching { org.kde.kdeconnect.ui.features.FeatureDestination.valueOf(it) }.getOrNull() }
-                                val recentFeature = recentDestination?.let { destination ->
-                                    val title = when (destination) {
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD -> R.string.feature_clipboard
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS -> R.string.feature_notifications
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION -> R.string.feature_connection
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.CONTROL -> R.string.feature_controls
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.SCENES -> R.string.feature_scenes
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR -> R.string.feature_mirror
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.DESK -> R.string.feature_desk_mode
-                                    }
-                                    val icon = when (destination) {
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD -> R.drawable.feature_clipboard
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS -> R.drawable.feature_bell
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION -> R.drawable.feature_wifi
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.CONTROL -> R.drawable.feature_home
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.SCENES -> R.drawable.feature_work
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR -> R.drawable.feature_cast
-                                        org.kde.kdeconnect.ui.features.FeatureDestination.DESK -> R.drawable.feature_home
-                                    }
-                                    RecentFeature(getString(title), icon)
-                                }
-                                PluginsScreen(
-                                    pluginsWithButtons = pluginsWithButtons,
-                                    pluginCards = pluginCards,
-                                    pluginsNeedPermissions = pluginsNeedPermissions,
-                                    pluginsNeedOptionalPermissions = pluginsNeedOptionalPermissions,
-                                    onButtonClick = { button -> button.onClick(mActivity!!) },
-                                    onPluginClick = { pluginCard ->
-                                        val plugin = device.getPluginIncludingWithoutPermissions(pluginCard.pluginKey)
-                                        when {
-                                            pluginCard.pluginKey == Plugin.getPluginKey(ClipboardPlugin::class.java) ->
-                                                (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD)
-                                            pluginCard.pluginKey == Plugin.getPluginKey(NotificationsPlugin::class.java) ->
-                                                (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS)
-                                            plugin != null && plugin.pluginKey in device.pluginsWithoutPermissions ->
-                                                plugin.permissionExplanationDialog.show(childFragmentManager, null)
-                                            pluginCard.action != null -> pluginCard.action.onClick(mActivity!!)
-                                            else -> startActivity(
-                                                PluginSettingsActivity.createIntent(
-                                                    requireContext(),
-                                                    device.deviceId,
-                                                    pluginCard.pluginKey,
-                                                )
+                        when (device.pairStatus) {
+                            PairingHandler.PairState.Paired -> {
+                                if (device.isReachable) {
+                                    val dashboardPlugins = remember(device, pluginUiRevision) {
+                                        val buttons = device.loadedPlugins.values
+                                            .flatMap { plugin -> plugin.getUiButtons() }.toMutableList()
+                                        val clipboardPlugin = device.loadedPlugins[Plugin.getPluginKey(ClipboardPlugin::class.java)]
+                                            as? ClipboardPlugin
+                                        if (buttons.none { it.iconRes == R.drawable.ic_baseline_content_paste_24 }) {
+                                            clipboardPlugin?.getUiMenuEntries()?.firstOrNull()?.let { entry ->
+                                                buttons.add(Plugin.PluginUiButton(entry.name,
+                                                    R.drawable.ic_baseline_content_paste_24, entry.onClick))
+                                            }
+                                        }
+                                        val requiredPermissions = device.pluginsWithoutPermissions.values.filter { plugin ->
+                                            device.isPluginEnabled(plugin.pluginKey)
+                                        }
+                                        val optionalPermissions = device.pluginsWithoutOptionalPermissions.values.filter { plugin ->
+                                            device.isPluginEnabled(plugin.pluginKey)
+                                        }
+                                        val featurePlugins = buildList {
+                                            add(Triple(Plugin.getPluginKey(ClipboardPlugin::class.java),
+                                                R.string.dashboard_clipboard, R.string.dashboard_clipboard_summary))
+                                            add(Triple(Plugin.getPluginKey(NotificationsPlugin::class.java),
+                                                R.string.dashboard_notifications, R.string.dashboard_notifications_summary))
+                                            add(Triple(Plugin.getPluginKey(SharePlugin::class.java),
+                                                R.string.dashboard_share, R.string.dashboard_share_summary))
+                                            add(Triple(Plugin.getPluginKey(MprisPlugin::class.java),
+                                                R.string.dashboard_media, R.string.dashboard_media_summary))
+                                            if (DeviceHelper.isTablet) {
+                                                add(Triple(Plugin.getPluginKey(MousePadPlugin::class.java),
+                                                    R.string.dashboard_remote_input, R.string.dashboard_remote_input_summary))
+                                                add(Triple(Plugin.getPluginKey(RunCommandPlugin::class.java),
+                                                    R.string.dashboard_commands, R.string.dashboard_commands_summary))
+                                            }
+                                        }
+                                        val cards = featurePlugins.map { (pluginKey, name, description) ->
+                                            val supported = pluginKey in device.supportedPlugins
+                                            val plugin = device.getPluginIncludingWithoutPermissions(pluginKey)
+                                                ?: if (supported) PluginFactory.instantiatePluginForDevice(
+                                                    requireContext(), pluginKey, device,
+                                                ) else null
+                                            val icon = when (pluginKey) {
+                                                Plugin.getPluginKey(ClipboardPlugin::class.java) -> R.drawable.ic_baseline_content_paste_24
+                                                Plugin.getPluginKey(NotificationsPlugin::class.java) -> R.drawable.ic_notifications_24
+                                                Plugin.getPluginKey(SharePlugin::class.java) -> R.drawable.share_plugin_action_24dp
+                                                Plugin.getPluginKey(MprisPlugin::class.java) -> R.drawable.mpris_plugin_action_24dp
+                                                Plugin.getPluginKey(MousePadPlugin::class.java) -> R.drawable.touchpad_plugin_action_24dp
+                                                else -> R.drawable.run_command_plugin_icon_24dp
+                                            }
+                                            PluginDashboardItem(
+                                                pluginKey = pluginKey,
+                                                name = getString(name),
+                                                description = getString(description),
+                                                iconRes = icon,
+                                                enabled = supported && device.isPluginEnabled(pluginKey),
+                                                action = plugin?.getUiButtons()?.firstOrNull(),
+                                                available = supported && plugin?.isCompatible == true,
                                             )
                                         }
+                                        DashboardPluginContent(buttons, requiredPermissions, optionalPermissions, cards)
+                                    }
+                                    val recentDestination = requireContext()
+                                        .getSharedPreferences("stored_menu_selection", Context.MODE_PRIVATE)
+                                        .getString(MainActivity.lastFeatureScreenPreferenceKey(device.deviceId), null)
+                                        ?.let { runCatching { org.kde.kdeconnect.ui.features.FeatureDestination.valueOf(it) }.getOrNull() }
+                                    val recentFeature = recentDestination?.let { destination ->
+                                        val title = when (destination) {
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD -> R.string.feature_clipboard
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS -> R.string.feature_notifications
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION -> R.string.feature_connection
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.CONTROL -> R.string.feature_controls
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.SCENES -> R.string.feature_scenes
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR -> R.string.feature_mirror
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.DESK -> R.string.feature_desk_mode
+                                        }
+                                        val icon = when (destination) {
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD -> R.drawable.feature_clipboard
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS -> R.drawable.feature_bell
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION -> R.drawable.feature_wifi
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.CONTROL -> R.drawable.feature_home
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.SCENES -> R.drawable.feature_work
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.MIRROR -> R.drawable.feature_cast
+                                            org.kde.kdeconnect.ui.features.FeatureDestination.DESK -> R.drawable.feature_home
+                                        }
+                                        RecentFeature(getString(title), icon)
+                                    }
+                                    PluginsScreen(
+                                        pluginsWithButtons = dashboardPlugins.buttons,
+                                        pluginCards = dashboardPlugins.cards,
+                                        pluginsNeedPermissions = dashboardPlugins.requiredPermissions,
+                                        pluginsNeedOptionalPermissions = dashboardPlugins.optionalPermissions,
+                                        onButtonClick = { button -> button.onClick(mActivity!!) },
+                                        onPluginClick = { pluginCard ->
+                                            val plugin = device.getPluginIncludingWithoutPermissions(pluginCard.pluginKey)
+                                            when {
+                                                pluginCard.pluginKey == Plugin.getPluginKey(ClipboardPlugin::class.java) ->
+                                                    (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.CLIPBOARD)
+                                                pluginCard.pluginKey == Plugin.getPluginKey(NotificationsPlugin::class.java) ->
+                                                    (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.NOTIFICATIONS)
+                                                plugin != null && plugin.pluginKey in device.pluginsWithoutPermissions ->
+                                                    plugin.permissionExplanationDialog.show(childFragmentManager, null)
+                                                pluginCard.action != null -> pluginCard.action.onClick(mActivity!!)
+                                                else -> startActivity(
+                                                    PluginSettingsActivity.createIntent(
+                                                        requireContext(),
+                                                        device.deviceId,
+                                                        pluginCard.pluginKey,
+                                                    )
+                                                )
+                                            }
+                                        },
+                                        onPluginEnabledChange = { pluginCard, enabled ->
+                                            if (pluginCard.available) device.setPluginEnabled(pluginCard.pluginKey, enabled)
+                                        },
+                                        onDeviceMenuClick = { anchor -> showDeviceOptions(anchor) },
+                                        actionNeedPermissions = { plugin ->
+                                            plugin.permissionExplanationDialog.show(
+                                                childFragmentManager,
+                                                null
+                                            )
+                                        },
+                                        actionNeedOptionalPermissions = { plugin ->
+                                            plugin.optionalPermissionExplanationDialog.show(
+                                                childFragmentManager,
+                                                null
+                                            )
+                                        },
+                                        localDeviceName = DeviceHelper.getDeviceName(requireContext()),
+                                        localDeviceIcon = DeviceHelper.deviceType.toDrawableId(),
+                                        remoteDeviceName = device.name,
+                                        remoteDeviceIcon = device.deviceType.toDrawableId(),
+                                        connectivityType = device.connectivityType,
+                                        onConnectionClick = { (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION) },
+                                        recentFeature = recentFeature,
+                                        onRecentFeatureClick = recentDestination?.let { destination ->
+                                            { (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, destination) }
+                                        },
+                                    )
+                                    displayBatteryInfoIfPossible()
+                                } else {
+                                    DeviceErrorScreen(
+                                        isRefreshing = isRefreshing,
+                                        onRefresh = { refreshDevicesAction() }
+                                    )
+                                }
+                            }
+
+                            else -> {
+                                DevicePairingScreen(
+                                    pairStatus = device.pairStatus,
+                                    verificationKey = device.verificationKey ?: "",
+                                    pairMessage = pairingErrorMessage,
+                                    onRequestPairing = {
+                                        viewModel.setPairingErrorMessage(message =null)
+                                        device.requestPairing()
+                                        refreshUI()
                                     },
-                                    onPluginEnabledChange = { pluginCard, enabled ->
-                                        if (pluginCard.available) device.setPluginEnabled(pluginCard.pluginKey, enabled)
+                                    onAcceptPairing = {
+                                        device.acceptPairing()
+                                        refreshUI()
                                     },
-                                    onDeviceMenuClick = { anchor -> showDeviceOptions(anchor) },
-                                    actionNeedPermissions = { plugin ->
-                                        plugin.permissionExplanationDialog.show(
-                                            childFragmentManager,
-                                            null
-                                        )
-                                    },
-                                    actionNeedOptionalPermissions = { plugin ->
-                                        plugin.optionalPermissionExplanationDialog.show(
-                                            childFragmentManager,
-                                            null
-                                        )
-                                    },
-                                    localDeviceName = DeviceHelper.getDeviceName(requireContext()),
-                                    localDeviceIcon = DeviceHelper.deviceType.toDrawableId(),
-                                    remoteDeviceName = device.name,
-                                    remoteDeviceIcon = device.deviceType.toDrawableId(),
-                                    connectivityType = device.connectivityType,
-                                    onConnectionClick = { (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, org.kde.kdeconnect.ui.features.FeatureDestination.CONNECTION) },
-                                    recentFeature = recentFeature,
-                                    onRecentFeatureClick = recentDestination?.let { destination ->
-                                        { (mActivity as? MainActivity)?.openFeatureScreen(device.deviceId, destination) }
-                                    },
-                                )
-                                displayBatteryInfoIfPossible()
-                            } else {
-                                DeviceErrorScreen(
-                                    isRefreshing = isRefreshing,
-                                    onRefresh = { refreshDevicesAction() }
+                                    onRejectPairing = {
+                                        device.apply {
+                                            // Remove listener so buttons don't show for an instant before changing the view
+                                            removePluginsChangedListener(pluginsChangedListener)
+                                            removePairingCallback(pairingCallback)
+                                            cancelPairing()
+                                        }
+                                        (mActivity as? MainActivity)?.onDeviceSelected(null)
+                                    }
                                 )
                             }
-                        }
-
-                        else -> {
-                            DevicePairingScreen(
-                                pairStatus = device.pairStatus,
-                                verificationKey = device.verificationKey ?: "",
-                                pairMessage = pairingErrorMessage,
-                                onRequestPairing = {
-                                    viewModel.setPairingErrorMessage(message =null)
-                                    device.requestPairing()
-                                    refreshUI()
-                                },
-                                onAcceptPairing = {
-                                    device.acceptPairing()
-                                    refreshUI()
-                                },
-                                onRejectPairing = {
-                                    device.apply {
-                                        // Remove listener so buttons don't show for an instant before changing the view
-                                        removePluginsChangedListener(pluginsChangedListener)
-                                        removePairingCallback(pairingCallback)
-                                        cancelPairing()
-                                    }
-                                    (mActivity as? MainActivity)?.onDeviceSelected(null)
-                                }
-                            )
                         }
                     }
                 }

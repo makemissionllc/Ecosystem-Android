@@ -62,6 +62,8 @@ private const val MENU_ENTRY_DEVICE_UNKNOWN = 9999 //It's still a device, but we
 private const val STATE_SELECTED_MENU_ENTRY = "selected_entry" //Saved only in onSaveInstanceState
 private const val STATE_SELECTED_DEVICE = "selected_device" //Saved persistently in preferences
 
+private data class DeviceMenuSnapshot(val id: String, val name: String, val icon: Int)
+
 class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
     private val binding by lazy { ActivityMainBinding.inflate(layoutInflater) }
     private val mNavigationView: NavigationView by lazy { binding.navigationDrawer }
@@ -89,6 +91,7 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
         }
     private val preferences: SharedPreferences by lazy { getSharedPreferences("stored_menu_selection", MODE_PRIVATE) }
     private val mMapMenuToDeviceId = HashMap<MenuItem, String>()
+    private var deviceMenuSnapshot: List<DeviceMenuSnapshot>? = null
 
     private val mainFragmentCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
@@ -374,19 +377,29 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
     }
 
     private fun updateDeviceList() {
+        val devices = KdeConnect.getInstance().devices.values
+            .filter { it.isReachable && it.isPaired }
+            .sortedWith(compareBy<Device> { it.name.lowercase() }.thenBy { it.deviceId })
+        val snapshot = devices.map { DeviceMenuSnapshot(it.deviceId, it.name, it.iconDrawable) }
+        if (snapshot == deviceMenuSnapshot) {
+            if (mCurrentMenuEntry >= MENU_ENTRY_DEVICE_FIRST_ID) {
+                mCurrentMenuEntry = deviceIdToMenuEntryId(mCurrentDevice)
+            }
+            mNavigationView.setCheckedItem(mCurrentMenuEntry)
+            return
+        }
+
+        deviceMenuSnapshot = snapshot
         val menu = mNavigationView.menu
         menu.clear()
         mMapMenuToDeviceId.clear()
         val devicesMenu = menu.addSubMenu(R.string.devices)
         var id = MENU_ENTRY_DEVICE_FIRST_ID
-        val devices: Collection<Device> = KdeConnect.getInstance().devices.values
         for (device in devices) {
-            if (device.isReachable && device.isPaired) {
-                val item = devicesMenu.add(Menu.FIRST, id++, 1, device.name)
-                item.icon = device.icon
-                item.isCheckable = true
-                mMapMenuToDeviceId[item] = device.deviceId
-            }
+            val item = devicesMenu.add(Menu.FIRST, id++, 1, device.name)
+            item.icon = device.icon
+            item.isCheckable = true
+            mMapMenuToDeviceId[item] = device.deviceId
         }
         val addDeviceItem = devicesMenu.add(Menu.FIRST, MENU_ENTRY_ADD_DEVICE, 1000, R.string.pair_new_device)
         addDeviceItem.setIcon(R.drawable.ic_action_content_add_circle_outline_32dp)
@@ -459,6 +472,7 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
             ?.let { org.kde.kdeconnect.ui.features.FeatureDestination.valueOf(it) })
         val manager = supportFragmentManager
         val previous = manager.findFragmentById(R.id.container)
+        if (previous != null && isSameDestination(previous, fragment)) return
         val returningToDevice = previous != null && previous !is DeviceFragment && fragment is DeviceFragment
         val transaction = manager.beginTransaction()
         if (previous != null) {
@@ -468,6 +482,23 @@ class MainActivity : AppCompatActivity(), OnSharedPreferenceChangeListener {
             )
         }
         transaction.replace(R.id.container, fragment).commit()
+    }
+
+    private fun isSameDestination(current: Fragment, requested: Fragment): Boolean = when {
+        current is DeviceFragment && requested is DeviceFragment ->
+            current.arguments?.getString("deviceId") == requested.arguments?.getString("deviceId") &&
+                current.arguments?.getBoolean("fromDeviceList", false) ==
+                requested.arguments?.getBoolean("fromDeviceList", false)
+
+        current is org.kde.kdeconnect.ui.features.FeatureFragment &&
+            requested is org.kde.kdeconnect.ui.features.FeatureFragment ->
+            current.arguments?.getString("deviceId") == requested.arguments?.getString("deviceId") &&
+                current.arguments?.getString("screen") == requested.arguments?.getString("screen")
+
+        current is EcosystemSettingsFragment && requested is EcosystemSettingsFragment -> true
+        current is PairingFragment && requested is PairingFragment -> true
+        current is AboutFragment && requested is AboutFragment -> true
+        else -> false
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
